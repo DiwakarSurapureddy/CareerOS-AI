@@ -1,213 +1,361 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import resumeService from '../services/resumeService';
+
+const API_DOMAIN = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace('/api', '');
+const getFullAvatarUrl = (path) => path ? (path.startsWith('http') ? path : `${API_DOMAIN}${path}`) : null;
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { resumeId } = useParams();
+  const { currentUser, loading: authLoading } = useAuth();
+  
+  const [resumeData, setResumeData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        let currentId = resumeId || localStorage.getItem('current_resume_id');
+        
+        // If no active ID, check if user has any resumes
+        if (!currentId) {
+          const res = await resumeService.getResumes();
+          if (res.success && res.data?.resumes?.length > 0) {
+            currentId = res.data.resumes[0].id || res.data.resumes[0]._id;
+            localStorage.setItem('current_resume_id', currentId);
+            navigate(`/dashboard/${currentId}`, { replace: true });
+            return;
+          } else {
+            setLoading(false);
+            return; // Show empty state
+          }
+        }
+        
+        if (currentId && !resumeId) {
+           navigate(`/dashboard/${currentId}`, { replace: true });
+           return;
+        }
+
+        const data = await resumeService.getResume(currentId);
+        if (data.success && data.data) {
+          setResumeData(data.data);
+          localStorage.setItem('current_resume_id', currentId); // Ensure local storage is in sync
+        } else {
+           throw new Error(data.message || 'Resume not found.');
+        }
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        setError(err.userMessage || 'Unable to load this resume.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!authLoading) {
+      fetchDashboardData();
+    }
+  }, [authLoading, resumeId, navigate]);
+
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const userInitials = currentUser?.name ? getInitials(currentUser.name) : 'U';
+
+  // Helper for safe nested properties
+  const parsed = resumeData?.parsed_data || {};
+  const candidateName = parsed?.name || currentUser?.name || (currentUser?.email ? currentUser.email.split('@')[0] : '') || 'Not available';
+
+  let welcomeMessage = "Welcome back 👋";
+  if (parsed?.name) {
+    welcomeMessage = `Welcome back, ${parsed.name} 👋`;
+  } else if (currentUser?.name) {
+    welcomeMessage = `Welcome back, ${currentUser.name} 👋`;
+  } else if (currentUser?.email) {
+    welcomeMessage = `Welcome back, ${currentUser.email.split('@')[0]} 👋`;
+  }
+
+  // Display professional empty state if no resume
+  if (!loading && !resumeData && !error) {
+    return (
+      <div className="space-y-6">
+        <section className="relative overflow-hidden glass-panel rounded-2xl p-8 text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="relative z-10">
+            <h2 className="font-display-lg text-3xl md:text-4xl font-extrabold text-on-surface mb-2">{welcomeMessage}</h2>
+            <p className="text-lg text-on-surface-variant">No resume uploaded yet.</p>
+            <p className="text-sm text-on-surface-variant/80 mt-1 mb-6">Upload your resume to unlock personalized AI career insights.</p>
+            <button 
+              onClick={() => navigate('/resume-analyzer')}
+              className="px-6 py-3 bg-primary text-white font-bold rounded-xl shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
+            >
+              Upload Resume
+            </button>
+          </div>
+          <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+          <div className="absolute -left-10 -bottom-10 w-48 h-48 bg-secondary/5 rounded-full blur-2xl"></div>
+        </section>
+      </div>
+    );
+  }
+
+  if (error) {
+     return (
+       <div className="space-y-6">
+         <section className="relative overflow-hidden glass-panel rounded-2xl p-8 text-center flex flex-col items-center gap-4">
+           <div className="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center text-error mb-2">
+             <span className="material-symbols-outlined text-3xl">error</span>
+           </div>
+           <h2 className="font-display-lg text-2xl font-bold text-on-surface">Resume not found</h2>
+           <p className="text-on-surface-variant max-w-md">{error}</p>
+           <p className="text-sm text-on-surface-variant/80 mb-2">Please try again or select another resume.</p>
+           
+           <div className="flex gap-4">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-6 py-2.5 bg-surface text-on-surface border border-outline-variant font-bold rounded-xl shadow-sm hover:bg-surface-container-high transition-transform cursor-pointer"
+              >
+                Retry
+              </button>
+              <button 
+                onClick={() => navigate('/resume-analyzer')}
+                className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl shadow-lg hover:scale-[1.02] transition-transform cursor-pointer"
+              >
+                Back to Resume Analyzer
+              </button>
+           </div>
+         </section>
+       </div>
+     );
+  }
+   const renderSkills = () => {
+      const rawSkills = Array.isArray(parsed?.skills) ? parsed.skills : [];
+      if (rawSkills.length === 0) return <span className="text-sm text-on-surface-variant italic">No skills extracted.</span>;
+      
+      // Check if it's the categorized format
+      if (rawSkills[0] && typeof rawSkills[0] === 'object' && rawSkills[0].category) {
+          return (
+              <div className="flex flex-col gap-3 w-full">
+                 {rawSkills.map((cat, i) => (
+                     <div key={i}>
+                         <p className="text-xs font-bold text-on-surface-variant mb-1">{cat.category}</p>
+                         <div className="flex flex-wrap gap-1.5">
+                             {(cat.items || []).map((skill, j) => (
+                                 <span key={j} className="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-bold border border-primary/20">
+                                     {skill}
+                                 </span>
+                             ))}
+                         </div>
+                     </div>
+                 ))}
+              </div>
+          );
+      }
+      
+      // Fallback to flat list
+      return (
+          <div className="flex flex-wrap gap-1.5">
+             {rawSkills.slice(0, 15).map((skill, i) => {
+                 const skillName = typeof skill === 'string' ? skill : (skill.name || skill.skill || '');
+                 if (!skillName) return null;
+                 return (
+                     <span key={i} className="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-bold border border-primary/20">
+                         {skillName}
+                     </span>
+                 );
+             })}
+             {rawSkills.length > 15 && (
+                <span className="px-2 py-0.5 bg-surface-container text-on-surface-variant rounded text-[10px] font-bold">
+                  +{rawSkills.length - 15} more
+                </span>
+             )}
+          </div>
+      )
+   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       {/* Hero Welcome */}
       <section className="relative overflow-hidden glass-panel rounded-2xl p-8 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="relative z-10 text-center md:text-left">
-          <h2 className="font-display-lg text-3xl md:text-4xl font-extrabold text-on-surface mb-2">Welcome back, Diwakar 👋</h2>
+          <h2 className="font-display-lg text-3xl md:text-4xl font-extrabold text-on-surface mb-2">{welcomeMessage}</h2>
           <p className="text-lg text-on-surface-variant">Continue building your career with expert AI guidance.</p>
+          {currentUser?.email && (
+            <p className="text-sm text-on-surface-variant/80 mt-1">{currentUser.email}</p>
+          )}
         </div>
-        <div className="relative z-10 flex items-center gap-4">
+        <div className="relative z-10 flex items-center gap-4 bg-surface/50 p-4 rounded-xl border border-outline-variant/30 backdrop-blur-sm">
           <div className="flex -space-x-2">
-            <div className="w-10 h-10 rounded-full border-2 border-white bg-primary flex items-center justify-center text-white text-[12px] font-bold">JD</div>
-            <div className="w-10 h-10 rounded-full border-2 border-white bg-secondary flex items-center justify-center text-white text-[12px] font-bold">AI</div>
+            {currentUser?.profile_image ? (
+              <img 
+                src={getFullAvatarUrl(currentUser.profile_image)} 
+                alt="Profile"
+                className="w-10 h-10 rounded-full border-2 border-white object-cover shadow-sm z-10"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full border-2 border-white bg-primary flex items-center justify-center text-white text-[12px] font-bold z-10">{userInitials}</div>
+            )}
+            <div className="w-10 h-10 rounded-full border-2 border-white bg-secondary flex items-center justify-center text-white text-[12px] font-bold relative z-0">AI</div>
           </div>
-          <div className="text-sm text-on-surface-variant">
-            <span className="font-bold text-primary">Live Optimization:</span> 84% Ready
+          <div className="text-sm text-on-surface-variant flex flex-col">
+            <span className="font-bold text-primary">Currently Analyzing:</span>
+            {loading ? (
+                <div className="w-24 h-4 bg-surface-variant rounded animate-pulse mt-1"></div>
+            ) : (
+                <span className="font-medium truncate max-w-[200px]" title={resumeData?.filename}>
+                   {resumeData?.filename || 'Unknown File'}
+                </span>
+            )}
           </div>
+          <button 
+             onClick={() => navigate('/resume-analyzer')}
+             className="ml-2 w-8 h-8 rounded-full hover:bg-surface-variant/50 flex items-center justify-center transition-colors group cursor-pointer"
+             title="Change Resume"
+          >
+             <span className="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-primary">swap_horiz</span>
+          </button>
         </div>
-        {/* Subtle background decoration */}
         <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
         <div className="absolute -left-10 -bottom-10 w-48 h-48 bg-secondary/5 rounded-full blur-2xl"></div>
       </section>
 
-      {/* Quick Actions Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <button
-          onClick={() => navigate('/resume-analyzer')}
-          className="glass-panel p-6 rounded-2xl flex items-center gap-6 group hover:bg-primary transition-all duration-300 cursor-pointer"
-        >
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-white/20">
-            <span className="material-symbols-outlined text-primary group-hover:text-white">upload_file</span>
-          </div>
-          <div className="text-left">
-            <p className="font-bold text-on-surface group-hover:text-white">Upload Resume</p>
-            <p className="text-xs text-on-surface-variant group-hover:text-white/80">Update your profile with AI</p>
-          </div>
-        </button>
-        <button
-          onClick={() => navigate('/skill-gap-analyzer')}
-          className="glass-panel p-6 rounded-2xl flex items-center gap-6 group hover:bg-secondary transition-all duration-300 cursor-pointer"
-        >
-          <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center group-hover:bg-white/20">
-            <span className="material-symbols-outlined text-secondary group-hover:text-white">bar_chart</span>
-          </div>
-          <div className="text-left">
-            <p className="font-bold text-on-surface group-hover:text-white">Analyze Skills</p>
-            <p className="text-xs text-on-surface-variant group-hover:text-white/80">Benchmark against market</p>
-          </div>
-        </button>
-        <button
-          onClick={() => navigate('/ai-career-mentor')}
-          className="glass-panel p-6 rounded-2xl flex items-center gap-6 group hover:bg-inverse-surface transition-all duration-300 cursor-pointer"
-        >
-          <div className="w-12 h-12 rounded-xl bg-inverse-surface/5 flex items-center justify-center group-hover:bg-white/20">
-            <span className="material-symbols-outlined text-on-surface group-hover:text-white">forum</span>
-          </div>
-          <div className="text-left">
-            <p className="font-bold text-on-surface group-hover:text-white">Chat with AI</p>
-            <p className="text-xs text-on-surface-variant group-hover:text-white/80">Get instant career advice</p>
-          </div>
-        </button>
-      </section>
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+            <h3 className="font-bold text-on-surface text-lg">Loading your resume analysis...</h3>
+            <p className="text-on-surface-variant text-sm mt-1">Fetching metrics and extracting skills.</p>
+        </div>
+      ) : (
+      <>
+        {/* Quick Actions Grid */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <button
+            onClick={() => navigate('/resume-analyzer')}
+            className="glass-panel p-6 rounded-2xl flex items-center gap-6 group hover:bg-primary transition-all duration-300 cursor-pointer"
+          >
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+              <span className="material-symbols-outlined text-primary group-hover:text-white transition-colors">upload_file</span>
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-on-surface group-hover:text-white transition-colors">Upload / Manage Resume</p>
+              <p className="text-xs text-on-surface-variant group-hover:text-white/80 transition-colors">Upload or change context</p>
+            </div>
+          </button>
+          <button
+            onClick={() => navigate(`/skill-gap-analyzer/${resumeId}`)}
+            className="glass-panel p-6 rounded-2xl flex items-center gap-6 group hover:bg-secondary transition-all duration-300 cursor-pointer"
+          >
+            <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+              <span className="material-symbols-outlined text-secondary group-hover:text-white transition-colors">bar_chart</span>
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-on-surface group-hover:text-white transition-colors">Analyze Skills</p>
+              <p className="text-xs text-on-surface-variant group-hover:text-white/80 transition-colors">Benchmark against market</p>
+            </div>
+          </button>
+          <button
+            onClick={() => navigate(`/ai-career-mentor/${resumeId}`)}
+            className="glass-panel p-6 rounded-2xl flex items-center gap-6 group hover:bg-inverse-surface transition-all duration-300 cursor-pointer"
+          >
+            <div className="w-12 h-12 rounded-xl bg-inverse-surface/5 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+              <span className="material-symbols-outlined text-on-surface group-hover:text-white transition-colors">forum</span>
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-on-surface group-hover:text-white transition-colors">Chat with AI</p>
+              <p className="text-xs text-on-surface-variant group-hover:text-white/80 transition-colors">Get instant career advice</p>
+            </div>
+          </button>
+        </section>
 
-      {/* Stats & Bento Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Main Analytics Section (Bento Style) */}
-        <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Stats Cards (Small) */}
-          <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:scale-[1.01] transition-transform duration-200">
-            <div className="flex justify-between items-start">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Resume Score</span>
-              <span className="text-primary font-bold text-sm">+12%</span>
+        {/* Main Stats / Resume Snapshot */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Resume Snapshot */}
+          <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between">
+            <div className="flex items-center gap-2 mb-6 border-b border-outline-variant/30 pb-4">
+              <span className="material-symbols-outlined text-primary">contact_page</span>
+              <h4 className="text-lg font-bold text-on-surface">Resume Snapshot</h4>
             </div>
-            <div className="mt-4 flex items-end justify-between">
-              <h3 className="text-4xl font-extrabold text-on-surface">84<span className="text-lg text-on-surface-variant/40">/100</span></h3>
-              <div className="w-20 h-2 bg-surface-container overflow-hidden rounded-full mb-2">
-                <div className="bg-primary h-full w-[84%]"></div>
-              </div>
-            </div>
-          </div>
-          <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between hover:scale-[1.01] transition-transform duration-200">
-            <div className="flex justify-between items-start">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Job Readiness</span>
-              <span className="material-symbols-outlined text-tertiary">rocket_launch</span>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center gap-2">
-                <h3 className="text-3xl font-extrabold text-on-surface">Elite</h3>
-                <span className="bg-tertiary/10 text-tertiary px-2 py-1 rounded text-[10px] font-bold">TOP 5%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Skills Distribution (Radar Chart Placeholder) */}
-          <div className="glass-panel p-6 rounded-2xl col-span-1 md:col-span-2">
-            <div className="flex justify-between items-center mb-6">
-              <h4 className="text-lg font-bold text-on-surface">Skill Distribution</h4>
-              <button onClick={() => navigate('/skill-gap-analyzer')} className="text-xs text-primary font-bold hover:underline cursor-pointer">View Detailed Map</button>
-            </div>
-            <div className="h-64 w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
-                  { subject: 'Technical', A: 120, fullMark: 150 },
-                  { subject: 'Management', A: 98, fullMark: 150 },
-                  { subject: 'Leadership', A: 86, fullMark: 150 },
-                  { subject: 'Design', A: 99, fullMark: 150 },
-                  { subject: 'Soft Skills', A: 85, fullMark: 150 },
-                ]}>
-                  <PolarGrid stroke="#cbd5e1" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 150]} tick={false} axisLine={false} />
-                  <Radar name="Skills" dataKey="A" stroke="#004ac6" fill="#004ac6" fillOpacity={0.4} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Progress Over Time (Bar Chart Placeholder) */}
-          <div className="glass-panel p-6 rounded-2xl col-span-1 md:col-span-2">
-            <div className="flex justify-between items-center mb-6">
-              <h4 className="text-lg font-bold text-on-surface">Learning Velocity</h4>
-              <div className="flex gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-primary"></span>
-                  <span className="text-[10px] text-on-surface-variant font-bold">ACTUAL</span>
+            
+            <div className="space-y-4 flex-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Candidate</p>
+                  <p className="text-sm font-semibold text-on-surface">{candidateName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Experience</p>
+                  <p className="text-sm font-semibold text-on-surface">{(parsed?.experience || []).length === 1 ? '1 Role' : `${(parsed?.experience || []).length} Roles`}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Education</p>
+                  <p className="text-sm font-semibold text-on-surface">{(parsed?.education || []).length === 1 ? '1 Degree' : `${(parsed?.education || []).length} Degrees`}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Projects</p>
+                  <p className="text-sm font-semibold text-on-surface">{(parsed?.projects || []).length === 1 ? '1 Project' : `${(parsed?.projects || []).length} Projects`}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Certifications</p>
+                  {(parsed?.certifications || []).length > 0 ? (
+                    <p className="text-sm font-semibold text-on-surface">
+                      {(parsed?.certifications || []).length === 1 ? '1 Certification' : `${(parsed?.certifications || []).length} Certifications`}
+                    </p>
+                  ) : (
+                    <div className="flex flex-col mt-0.5">
+                      <span className="text-xs text-on-surface-variant italic leading-tight">No certifications detected</span>
+                      <span className="text-primary text-[10px] font-bold cursor-pointer hover:underline mt-1 inline-block" onClick={() => navigate('/resume-analyzer')}>
+                        Update from Resume
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
+              
+              <div className="pt-2">
+                <p className="text-xs text-on-surface-variant uppercase tracking-wider font-bold mb-3">Skills Detected</p>
+                {renderSkills()}
+              </div>
             </div>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={[
-                  { name: 'MON', actual: 60 },
-                  { name: 'TUE', actual: 80 },
-                  { name: 'WED', actual: 70 },
-                  { name: 'THU', actual: 95 },
-                  { name: 'FRI', actual: 40 },
-                  { name: 'SAT', actual: 30 },
-                ]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={32}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} />
-                  <YAxis hide={true} domain={[0, 100]} />
-                  <Tooltip 
-                    cursor={{ fill: 'transparent' }}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                  />
-                  <Bar dataKey="actual" radius={[4, 4, 0, 0]}>
-                    {[...Array(6)].map((_, index) => (
-                      <Cell key={`cell-${index}`} fill="#004ac6" />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+          </div>
+
+          {/* Next Steps / Analysis Gateway */}
+          <div className="glass-panel p-6 rounded-2xl flex flex-col items-center justify-center text-center border border-secondary/20 bg-gradient-to-br from-white to-secondary/5 dark:from-gray-900 dark:to-secondary/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+               <span className="material-symbols-outlined text-[100px]">auto_awesome</span>
+            </div>
+            
+            <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center text-secondary mb-4 shadow-inner relative z-10">
+              <span className="material-symbols-outlined text-[32px]">psychology</span>
+            </div>
+            <h3 className="text-xl font-bold text-on-surface mb-2 relative z-10">Run AI Analytics</h3>
+            <p className="text-sm text-on-surface-variant mb-6 px-4 relative z-10">
+              Leverage Gemini AI to generate actionable intelligence on your uploaded resume.
+            </p>
+            <div className="flex flex-col w-full gap-3 px-8 relative z-10">
+              <button onClick={() => navigate(`/ats-score/${resumeId}`)} className="py-2.5 bg-surface text-on-surface border border-outline-variant rounded-xl font-semibold hover:border-secondary hover:text-secondary transition-colors cursor-pointer flex items-center justify-center gap-2 group shadow-sm hover:shadow-md">
+                <span className="material-symbols-outlined text-[18px] group-hover:animate-pulse">query_stats</span> ATS Score
+              </button>
+              <button onClick={() => navigate(`/skill-gap-analyzer/${resumeId}`)} className="py-2.5 bg-surface text-on-surface border border-outline-variant rounded-xl font-semibold hover:border-primary hover:text-primary transition-colors cursor-pointer flex items-center justify-center gap-2 group shadow-sm hover:shadow-md">
+                <span className="material-symbols-outlined text-[18px] group-hover:animate-pulse">analytics</span> Skill Gap Match
+              </button>
+              <button onClick={() => navigate(`/career-prediction/${resumeId}`)} className="py-2.5 bg-surface text-on-surface border border-outline-variant rounded-xl font-semibold hover:border-tertiary hover:text-tertiary transition-colors cursor-pointer flex items-center justify-center gap-2 group shadow-sm hover:shadow-md">
+                <span className="material-symbols-outlined text-[18px] group-hover:animate-pulse">insights</span> Career Prediction
+              </button>
             </div>
           </div>
         </div>
-
-        {/* Feed & Recommendations (Right Column) */}
-        <aside className="lg:col-span-4 space-y-6">
-          {/* Circular Readiness */}
-          <div className="glass-panel p-6 rounded-2xl flex flex-col items-center text-center ai-glow border-primary/20">
-            <div className="relative w-32 h-32 flex items-center justify-center mb-6">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle className="text-surface-container-high" cx="64" cy="64" fill="transparent" r="50" stroke="currentColor" strokeWidth="8"></circle>
-                <circle className="text-primary" cx="64" cy="64" fill="transparent" r="50" stroke="currentColor" strokeDasharray="314.15" strokeDashoffset="47.12" strokeWidth="8" strokeLinecap="round"></circle>
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-2xl font-extrabold text-on-surface">85%</span>
-                <span className="text-[9px] text-outline font-bold tracking-wider">READY</span>
-              </div>
-            </div>
-            <h4 className="font-bold text-on-surface">Target: Sr. Product Designer</h4>
-            <p className="text-xs text-on-surface-variant mt-2">You are only 3 certifications away from your goal position.</p>
-            <button
-              onClick={() => navigate('/career-prediction')}
-              className="mt-6 w-full py-3 bg-primary text-white rounded-xl font-semibold shadow-lg hover:shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-            >
-              Optimize Profile
-            </button>
-          </div>
-
-          {/* AI Suggestions Feed */}
-          <div className="glass-panel rounded-2xl overflow-hidden border border-outline-variant/30">
-            <div className="p-4 border-b border-outline-variant/30 flex items-center gap-2 bg-slate-50">
-              <span className="material-symbols-outlined text-secondary animate-pulse">magic_button</span>
-              <h4 className="font-bold text-on-surface">AI Suggestions</h4>
-            </div>
-            <div className="p-4 space-y-4">
-              <div className="flex gap-3 border-l-2 border-primary pl-3 py-1">
-                <div>
-                  <p className="text-xs font-bold text-on-surface">New Skill Gap Identified</p>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">Market trend: "Kubernetes" is now highly requested for your target role.</p>
-                  <button onClick={() => navigate('/skill-gap-analyzer')} className="text-[11px] text-primary font-bold mt-1 inline-block hover:underline cursor-pointer">Add to Roadmap</button>
-                </div>
-              </div>
-              <div className="flex gap-3 border-l-2 border-secondary pl-3 py-1">
-                <div>
-                  <p className="text-xs font-bold text-on-surface">Resume Tip</p>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5">Quantify your achievements under TechFlow experience to increase ATS score.</p>
-                  <button onClick={() => navigate('/ats-score')} className="text-[11px] text-secondary font-bold mt-1 inline-block hover:underline cursor-pointer">Fix Now</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
+      </>
+      )}
     </div>
   );
 };

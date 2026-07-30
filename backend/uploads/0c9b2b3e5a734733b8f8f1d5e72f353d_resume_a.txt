@@ -1,0 +1,9 @@
+
+        John Doe - Full Stack & Python Engineer
+        Summary: Passionate software engineer skilled in scalable backend architecture and responsive web designs.
+        Skills: Python, React, Flask, JavaScript, HTML, CSS, Git, REST APIs, SQL, PostgreSQL, MongoDB, Object-Oriented Programming, Unit Testing, Linux.
+        Experience: Developed microservices using Flask and PostgreSQL. Managed database indexing and state management with React.
+        Education: B.S. in Computer Science.
+        Projects: E-commerce API powered by Flask and MongoDB.
+        Certifications: Certified Developer.
+        

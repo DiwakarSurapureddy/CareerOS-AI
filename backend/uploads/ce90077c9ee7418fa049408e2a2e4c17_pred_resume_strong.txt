@@ -1,0 +1,8 @@
+
+        Dr. Alex Principal - Senior Full Stack & DevOps Architect
+        Summary: Principal Engineer with 12+ years deploying enterprise microservices and cloud infrastructure.
+        Skills: Python, React, JavaScript, TypeScript, Node.js, Django, Flask, FastAPI, Docker, Kubernetes, AWS, GCP, Azure, Terraform, Jenkins, Git, SQL, PostgreSQL, MongoDB, CI/CD, Microservices, Linux.
+        Experience: Principal DevOps Architect at Cloud Scale AI (12+ years). Architected high-availability multi-cloud Kubernetes clusters.
+        Education: Ph.D. in Computer Science.
+        Certifications: AWS Certified Solutions Architect Professional, Kubernetes Certified Administrator.
+        

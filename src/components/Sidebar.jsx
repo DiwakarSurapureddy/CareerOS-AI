@@ -1,20 +1,46 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const location = useLocation();
+  const pathParts = location.pathname.split('/');
+  
+  // Extract resumeId from URL or fallback to local storage
+  let currentResumeId = null;
+  if (pathParts.length > 2 && pathParts[2] && pathParts[2] !== '') {
+    currentResumeId = pathParts[2];
+  } else {
+    currentResumeId = localStorage.getItem('current_resume_id');
+  }
+
+  const getPath = (basePath) => {
+    // We do not append resumeId to generic non-resume-specific routes like LogoView if they shouldn't have one,
+    // but the task states all these should maintain the selected resume context.
+    // The routes we updated in App.jsx all support /:resumeId
+    if (basePath === '/logo-view') return basePath;
+    return currentResumeId ? `${basePath}/${currentResumeId}` : basePath;
+  };
+
   const menuItems = [
-    { name: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
-    { name: 'Resume Analyzer', path: '/resume-analyzer', icon: 'description' },
-    { name: 'Skill Gap Analyzer', path: '/skill-gap-analyzer', icon: 'analytics' },
-    { name: 'AI Career Mentor', path: '/ai-career-mentor', icon: 'psychology' },
-    { name: 'Career Prediction', path: '/career-prediction', icon: 'insights' },
-    { name: 'ATS Score', path: '/ats-score', icon: 'query_stats' },
-    { name: 'CareerOS AI Logo', path: '/logo-view', icon: 'auto_awesome_motion' },
+    { name: 'Dashboard', path: getPath('/dashboard'), icon: 'dashboard' },
+    { name: 'Resume Analyzer', path: getPath('/resume-analyzer'), icon: 'description' },
+    { name: 'Skill Gap Analyzer', path: getPath('/skill-gap-analyzer'), icon: 'analytics' },
+    { name: 'AI Career Mentor', path: getPath('/ai-career-mentor'), icon: 'psychology' },
+    { name: 'Career Prediction', path: getPath('/career-prediction'), icon: 'insights' },
+    { name: 'ATS Score', path: getPath('/ats-score'), icon: 'query_stats' },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <aside className="w-64 h-full fixed left-0 top-0 border-r border-outline-variant/30 bg-white/80 backdrop-blur-md shadow-sm flex flex-col py-md px-sm overflow-y-auto z-50">
-      <div className="mb-xl px-4 flex items-center gap-3">
+      <NavLink to="/dashboard" className="mb-xl px-4 flex items-center gap-3 hover:opacity-80 transition-opacity">
         <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white shadow-lg">
           <span className="material-symbols-outlined text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
         </div>
@@ -22,7 +48,7 @@ const Sidebar = () => {
           <h1 className="font-display-lg text-headline-md font-bold text-primary">CareerOS AI</h1>
           <p className="text-[10px] uppercase tracking-widest text-outline">Professional Copilot</p>
         </div>
-      </div>
+      </NavLink>
       <nav className="flex-1 space-y-1 custom-scrollbar">
         {menuItems.map((item) => (
           <NavLink
@@ -66,6 +92,13 @@ const Sidebar = () => {
           <span className="material-symbols-outlined">settings</span>
           <span className="font-body-md text-body-md">Settings</span>
         </NavLink>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 rounded-lg transition-colors cursor-pointer"
+        >
+          <span className="material-symbols-outlined">logout</span>
+          <span className="font-body-md text-body-md">Logout</span>
+        </button>
       </div>
     </aside>
   );

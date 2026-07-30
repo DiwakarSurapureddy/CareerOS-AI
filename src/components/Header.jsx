@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const API_DOMAIN = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace('/api', '');
+const getFullAvatarUrl = (path) => path ? (path.startsWith('http') ? path : `${API_DOMAIN}${path}`) : null;
 
 const Header = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
   
   useEffect(() => {
@@ -60,12 +65,21 @@ const Header = () => {
           <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
           AI Assistant
         </button>
-        <img
-          onClick={() => navigate('/profile')}
-          className="w-10 h-10 rounded-full object-cover border-2 border-primary/20 cursor-pointer"
-          alt="User Profile"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCarTJulv0u346vguiunsBsyM9dCBrrPCEgKCCQq9yV7ZT4pagbeVgvLUYq3NCVJ9a4EgLgA7beiwqdLTghTmoNcvc_2QaoYSpVqW7T2fSyqYDZJywfPsOG2Jufwf7K3P-WQfH6N08lk2dSbrBZBep8FjJTGA1CdX0AKcE3xGEkVw0YkDMg5uEwxhfc7O9oIKul7oYtzonMymz10hVFDP4FzgAuhhbis5La_hbE7YNTh2sVJgfI6EM9h8XPmslyGYvLrn1GN1BlO9w4"
-        />
+        {currentUser?.profile_image ? (
+          <img
+            onClick={() => navigate('/profile')}
+            className="w-10 h-10 rounded-full object-cover border-2 border-primary/20 cursor-pointer"
+            alt="User Profile"
+            src={getFullAvatarUrl(currentUser.profile_image)}
+          />
+        ) : (
+          <div 
+            onClick={() => navigate('/profile')}
+            className="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center border-2 border-primary/20 cursor-pointer text-on-surface-variant"
+          >
+            <span className="material-symbols-outlined text-[20px]">person</span>
+          </div>
+        )}
       </div>
     </header>
   );

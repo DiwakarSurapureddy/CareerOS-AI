@@ -1,14 +1,32 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import authService from '../services/authService';
+
+const API_DOMAIN = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace('/api', '');
+const getFullAvatarUrl = (path) => path ? (path.startsWith('http') ? path : `${API_DOMAIN}${path}`) : null;
 
 const Profile = () => {
+  const { currentUser, updateCurrentUser } = useAuth();
   const [profile, setProfile] = useState({
-    name: 'Diwakar',
-    email: 'diwakar@example.com',
-    jobTitle: 'Data Scientist',
+    name: currentUser?.name || currentUser?.full_name || 'Candidate',
+    email: currentUser?.email || 'user@company.com',
+    jobTitle: 'Software & Cloud Technology Engineer',
     location: 'San Francisco, CA',
-    bio: 'Passionate data scientist with 5 years of experience in machine learning and analytics.',
-    photoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCarTJulv0u346vguiunsBsyM9dCBrrPCEgKCCQq9yV7ZT4pagbeVgvLUYq3NCVJ9a4EgLgA7beiwqdLTghTmoNcvc_2QaoYSpVqW7T2fSyqYDZJywfPsOG2Jufwf7K3P-WQfH6N08lk2dSbrBZBep8FjJTGA1CdX0AKcE3xGEkVw0YkDMg5uEwxhfc7O9oIKul7oYtzonMymz10hVFDP4FzgAuhhbis5La_hbE7YNTh2sVJgfI6EM9h8XPmslyGYvLrn1GN1BlO9w4'
+    bio: 'Passionate engineering candidate committed to leveraging CareerOS AI to identify target career milestones and close skill gaps.',
+    photoUrl: currentUser?.profile_image ? getFullAvatarUrl(currentUser.profile_image) : null
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      setProfile(prev => ({
+        ...prev,
+        name: currentUser.name || currentUser.full_name || prev.name,
+        email: currentUser.email || prev.email,
+        photoUrl: currentUser.profile_image ? getFullAvatarUrl(currentUser.profile_image) : prev.photoUrl
+      }));
+    }
+  }, [currentUser]);
+
   const [isEditing, setIsEditing] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState(profile.photoUrl);
   const fileInputRef = useRef(null);
@@ -25,11 +43,29 @@ const Profile = () => {
     }
   };
 
-  const handlePhotoUpload = (e) => {
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setPreviewPhoto(url);
+      try {
+        setIsUploading(true);
+        const url = URL.createObjectURL(file);
+        setPreviewPhoto(url);
+        
+        const res = await authService.uploadAvatar(file);
+        if (res.success && res.data?.user) {
+          if (updateCurrentUser) {
+            updateCurrentUser(res.data.user);
+          }
+          setProfile(prev => ({ ...prev, photoUrl: getFullAvatarUrl(res.data.user.profile_image) }));
+        }
+      } catch (err) {
+        console.error("Failed to upload avatar", err);
+        alert(err.userMessage || "Failed to upload avatar");
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -58,11 +94,17 @@ const Profile = () => {
         {/* Photo Section */}
         <div className="flex flex-col items-center gap-4">
           <div className="relative group">
-            <img 
-              src={isEditing ? previewPhoto : profile.photoUrl} 
-              alt="Profile" 
-              className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
-            />
+            {(isEditing ? previewPhoto : profile.photoUrl) ? (
+              <img 
+                src={isEditing ? previewPhoto : profile.photoUrl} 
+                alt="Profile" 
+                className={`w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg ${isUploading ? 'opacity-50' : ''}`}
+              />
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-surface-variant flex items-center justify-center border-4 border-white shadow-lg">
+                <span className="material-symbols-outlined text-5xl text-on-surface-variant">person</span>
+              </div>
+            )}
             {isEditing && (
               <div 
                 onClick={() => fileInputRef.current?.click()}

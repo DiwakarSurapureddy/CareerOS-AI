@@ -1,0 +1,6 @@
+
+        John Engineer - Python & DevOps Candidate
+        Summary: Software developer seeking Cloud Engineer transition.
+        Skills: Python, Linux, Git, SQL, Flask.
+        Education: B.S. in Computer Science.
+        

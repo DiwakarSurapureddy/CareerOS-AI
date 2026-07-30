@@ -1,0 +1,4 @@
+Alex Taylor
+Email: alex.t@example.com | Phone: 512-555-0188 | Austin, TX
+Skills: Java, Spring Boot, MySQL, Git
+Education: Bachelor of Science in Engineering, University of Texas, 2022

@@ -1,0 +1,6 @@
+
+        Senior Python Specialist
+        Summary: Veteran Python Backend Engineer with 10+ years architecting cloud services.
+        Skills: Python, Django, Flask, FastAPI, Celery, SQL, PostgreSQL, MongoDB, Redis, SQLite, MySQL, Git, Docker, Kubernetes, AWS, CI/CD, Linux, Object-Oriented Programming, REST APIs, Unit Testing, Pytest, Postman, Jira, PyCharm, VS Code, Microservices.
+        Experience: Lead Python Developer deploying high-performance asynchronous REST APIs on AWS Kubernetes.
+        

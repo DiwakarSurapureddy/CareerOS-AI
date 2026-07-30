@@ -1,0 +1,8 @@
+
+        John Engineer - Backend & Python Developer
+        Summary: Mid-level software engineer with 4+ years building production Python and Flask REST APIs.
+        Skills: Python, Flask, SQL, PostgreSQL, MongoDB, Git, Docker, REST APIs, Linux, Unit Testing.
+        Experience: Backend Developer at Tech Corp (4+ years). Developed scalable Docker microservices.
+        Education: B.S. in Computer Science.
+        Certifications: AWS Certified Cloud Practitioner.
+        

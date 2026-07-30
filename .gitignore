@@ -25,3 +25,6 @@ dist-ssr
 
 
 mcp_config.json
+.env
+.env.*
+!.env.example
