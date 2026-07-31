@@ -7,6 +7,7 @@ from bson.objectid import ObjectId
 from flask import Blueprint, request, jsonify, current_app
 from models.user import User
 from utils.auth import generate_token, token_required, get_current_user
+import requests as http_requests
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +123,80 @@ def login():
             "user": safe_user
         }
     }), 200
+
+@auth_bp.route('/google', methods=['POST'])
+def google_login():
+    """
+    Authenticate a user via Google OAuth access token.
+    Expected JSON payload: { "access_token": "<GOOGLE_ACCESS_TOKEN>" }
+    """
+    data = request.get_json(silent=True) or {}
+    access_token = data.get('access_token')
+    
+    if not access_token:
+        return jsonify({
+            "success": False,
+            "message": "Google access token is required."
+        }), 400
+
+    try:
+        # Fetch user info from Google
+        user_info_resp = http_requests.get(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        if not user_info_resp.ok:
+            return jsonify({
+                "success": False,
+                "message": "Failed to fetch user profile from Google."
+            }), 401
+            
+        idinfo = user_info_resp.json()
+        email = idinfo.get('email')
+        name = idinfo.get('name')
+        
+        if not email:
+            return jsonify({
+                "success": False,
+                "message": "Google account does not have an email associated."
+            }), 400
+            
+        # Find user document by email
+        user_doc = User.find_by_email(email)
+        
+        if not user_doc:
+            # Create a new user automatically
+            # We will use a random secure password for Google users since they don't have one
+            random_password = uuid.uuid4().hex + uuid.uuid4().hex
+            created, result = User.create(name=name or "Google User", email=email, password=random_password)
+            if not created:
+                return jsonify({
+                    "success": False,
+                    "message": "Failed to create Google user account."
+                }), 500
+            user_doc = User.find_by_email(email)
+            
+        # Format user response securely
+        safe_user = User.to_json_safe(user_doc)
+        
+        # Generate JWT token
+        jwt_token = generate_token(user_id=safe_user['id'], email=safe_user['email'])
+
+        return jsonify({
+            "success": True,
+            "message": "Google login successful",
+            "data": {
+                "token": jwt_token,
+                "user": safe_user
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Google login error: {e}")
+        return jsonify({
+            "success": False,
+            "message": "Google authentication failed."
+        }), 500
 
 @auth_bp.route('/me', methods=['GET'])
 @token_required

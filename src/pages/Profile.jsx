@@ -11,7 +11,7 @@ const Profile = () => {
     name: currentUser?.name || currentUser?.full_name || 'Candidate',
     email: currentUser?.email || 'user@company.com',
     jobTitle: 'Software & Cloud Technology Engineer',
-    location: 'San Francisco, CA',
+    location: '',
     bio: 'Passionate engineering candidate committed to leveraging CareerOS AI to identify target career milestones and close skill gaps.',
     photoUrl: currentUser?.profile_image ? getFullAvatarUrl(currentUser.profile_image) : null
   });
@@ -52,7 +52,7 @@ const Profile = () => {
         setIsUploading(true);
         const url = URL.createObjectURL(file);
         setPreviewPhoto(url);
-        
+
         const res = await authService.uploadAvatar(file);
         if (res.success && res.data?.user) {
           if (updateCurrentUser) {
@@ -74,14 +74,14 @@ const Profile = () => {
       <div className="flex justify-between items-center">
         <h2 className="font-display-lg text-3xl font-extrabold text-on-surface">Profile</h2>
         {!isEditing ? (
-          <button 
+          <button
             onClick={() => setIsEditing(true)}
             className="px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 shadow-sm transition-all"
           >
             Edit Profile
           </button>
         ) : (
-          <button 
+          <button
             onClick={handleSave}
             className="px-6 py-2 bg-secondary text-white rounded-lg font-semibold hover:bg-secondary/90 shadow-sm transition-all"
           >
@@ -95,9 +95,9 @@ const Profile = () => {
         <div className="flex flex-col items-center gap-4">
           <div className="relative group">
             {(isEditing ? previewPhoto : profile.photoUrl) ? (
-              <img 
-                src={isEditing ? previewPhoto : profile.photoUrl} 
-                alt="Profile" 
+              <img
+                src={isEditing ? previewPhoto : profile.photoUrl}
+                alt="Profile"
                 className={`w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg ${isUploading ? 'opacity-50' : ''}`}
               />
             ) : (
@@ -106,19 +106,19 @@ const Profile = () => {
               </div>
             )}
             {isEditing && (
-              <div 
+              <div
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <span className="material-symbols-outlined text-white text-3xl">add_a_photo</span>
               </div>
             )}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={handlePhotoUpload} 
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handlePhotoUpload}
             />
           </div>
           <div className="text-center">
@@ -133,10 +133,10 @@ const Profile = () => {
             <div className="space-y-2">
               <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Full Name</label>
               {isEditing ? (
-                <input 
-                  type="text" 
-                  name="name" 
-                  value={profile.name} 
+                <input
+                  type="text"
+                  name="name"
+                  value={profile.name}
                   onChange={handleChange}
                   className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                 />
@@ -147,10 +147,10 @@ const Profile = () => {
             <div className="space-y-2">
               <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Email</label>
               {isEditing ? (
-                <input 
-                  type="email" 
-                  name="email" 
-                  value={profile.email} 
+                <input
+                  type="email"
+                  name="email"
+                  value={profile.email}
                   onChange={handleChange}
                   className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                 />
@@ -161,10 +161,10 @@ const Profile = () => {
             <div className="space-y-2">
               <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Job Title</label>
               {isEditing ? (
-                <input 
-                  type="text" 
-                  name="jobTitle" 
-                  value={profile.jobTitle} 
+                <input
+                  type="text"
+                  name="jobTitle"
+                  value={profile.jobTitle}
                   onChange={handleChange}
                   className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                 />
@@ -175,10 +175,10 @@ const Profile = () => {
             <div className="space-y-2">
               <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Location</label>
               {isEditing ? (
-                <input 
-                  type="text" 
-                  name="location" 
-                  value={profile.location} 
+                <input
+                  type="text"
+                  name="location"
+                  value={profile.location}
                   onChange={handleChange}
                   className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none text-sm"
                 />
@@ -187,13 +187,13 @@ const Profile = () => {
               )}
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Bio</label>
             {isEditing ? (
-              <textarea 
-                name="bio" 
-                value={profile.bio} 
+              <textarea
+                name="bio"
+                value={profile.bio}
                 onChange={handleChange}
                 rows={4}
                 className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary/20 outline-none text-sm resize-none"
