@@ -28,7 +28,7 @@ class GeminiService:
         Never exposes raw API keys or internal stack traces to end users.
         """
         api_key = os.getenv('GEMINI_API_KEY', '').strip()
-        model_name = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash').strip()
+        model_name = os.getenv('GEMINI_MODEL', 'gemini-flash-latest').strip()
         
         if current_app and not api_key:
             api_key = current_app.config.get('GEMINI_API_KEY', '').strip()
@@ -340,7 +340,7 @@ Generate a single JSON object containing exactly the following keys and data for
                 return False, "AI analysis service is currently experiencing high volume. Please wait a moment and try again."
 
         api_key = os.getenv("GEMINI_API_KEY")
-        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
         if not api_key or not api_key.strip():
             logger.error("Gemini AI Career Prediction failed: GEMINI_API_KEY environment variable is missing or unconfigured.")
@@ -574,7 +574,7 @@ Analyze the user's verified background, skills, projects, and evaluation scores 
             return False, "The AI mentor is temporarily unavailable. Please try again later."
 
         api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip()
+        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
 
         if not api_key:
             logger.warning("AI Mentor request failed: GEMINI_API_KEY is unconfigured or empty in environment.")

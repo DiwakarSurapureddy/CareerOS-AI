@@ -163,11 +163,12 @@ class MentorService:
         if conversation_id and str(conversation_id).strip():
             conv_id_str = str(conversation_id).strip()
             ok, conv_doc = MentorChat.get_by_id_and_user(conv_id_str, user_id)
-            if not ok or not isinstance(conv_doc, dict):
-                logger.warning(f"Unauthorized chat attempt or invalid conversation ID {conv_id_str} by user {user_id}")
-                return False, {"success": False, "message": "Conversation record not found or access denied."}, 404
-            existing_messages = conv_doc.get("messages", [])
-            conv_title = conv_doc.get("title")
+            if ok and isinstance(conv_doc, dict):
+                existing_messages = conv_doc.get("messages", [])
+                conv_title = conv_doc.get("title")
+            else:
+                is_new = True
+                logger.info(f"Initializing new conversation record for provided ID {conv_id_str} by user {user_id}")
         else:
             is_new = True
             conv_id_str = str(uuid.uuid4())

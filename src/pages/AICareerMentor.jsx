@@ -47,9 +47,9 @@ const AICareerMentor = () => {
         }
 
         if (currentId) {
-          const historyRes = await chatService.getHistory(currentId);
-          if (historyRes.success && historyRes.data && Array.isArray(historyRes.data.history)) {
-            const hist = historyRes.data.history;
+          const historyRes = await chatService.getConversation(currentId);
+          if (historyRes.success && historyRes.data && Array.isArray(historyRes.data.messages)) {
+            const hist = historyRes.data.messages;
             if (hist.length > 0) {
               const formattedHist = [defaultInitialMessage];
               hist.forEach((m, idx) => {
@@ -98,7 +98,7 @@ const AICareerMentor = () => {
       const res = await chatService.sendMessage(userMsgText, resumeId);
 
       if (res.success && res.data) {
-        const aiReply = res.data.reply || res.data.message || res.data.response || res.data.answer || "I have analyzed your career inquiry against our Gemini skill gap model. Feel free to explore the ATS and Skill Gap dashboards for detailed tactical advice.";
+        const aiReply = res.data.assistant_message || res.data.reply || res.data.response || res.data.answer || "I have analyzed your career inquiry against our Gemini skill gap model. Feel free to explore the ATS and Skill Gap dashboards for detailed tactical advice.";
         setMessages((prev) => [
           ...prev,
           {
@@ -124,7 +124,7 @@ const AICareerMentor = () => {
     setError(null);
     try {
       if (resumeId) {
-        await chatService.clearHistory(resumeId);
+        await chatService.deleteConversation(resumeId);
       }
       setMessages([defaultInitialMessage]);
     } catch (err) {
