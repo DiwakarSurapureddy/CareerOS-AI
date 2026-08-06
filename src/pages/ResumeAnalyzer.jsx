@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import resumeService from '../services/resumeService';
+import DocumentViewer from '../components/DocumentViewer';
 
 const ResumeAnalyzer = () => {
   const navigate = useNavigate();
@@ -194,7 +195,7 @@ const ResumeAnalyzer = () => {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-2">
-          <h2 className="font-headline text-2xl font-bold text-on-surface">Resume Analyzer</h2>
+          <h2 className="font-headline text-2xl font-bold text-on-surface">Import Resume</h2>
           <p className="font-body-md text-on-surface-variant max-w-2xl">
             Upload your resume to receive a comprehensive AI-powered breakdown of your professional profile, ATS compatibility, and tailored career recommendations.
           </p>
@@ -389,131 +390,16 @@ const ResumeAnalyzer = () => {
                 </>
               ) : (
                 <>
-                  Generate AI Dashboard <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  READY FOR AI ANALYSIS <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </>
               )}
             </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: Parsed Document Details */}
-            <div className="lg:col-span-8 space-y-6">
-              
-              {/* Personal Info Card */}
-              <div className="glass-panel p-6 rounded-2xl">
-                <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">person</span>
-                  Personal Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-outline">Full Name</p>
-                    <p className="text-on-surface font-semibold">{candidateName || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-outline">Email Address</p>
-                    <p className="text-on-surface font-semibold">{candidateEmail || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-outline">Phone Number</p>
-                    <p className="text-on-surface font-semibold">{candidatePhone || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold tracking-wider text-outline">Location</p>
-                    <p className="text-on-surface font-semibold">{candidateLocation || '—'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Professional Summary */}
-              <div className="glass-panel p-6 rounded-2xl">
-                <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">article</span>
-                  Professional Summary
-                </h4>
-                <p className="text-sm text-on-surface-variant leading-relaxed">
-                  {parsed.professional_summary || parsed.summary || 'No professional summary found in document.'}
-                </p>
-              </div>
-
-              {/* Experience */}
-              <div className="glass-panel p-6 rounded-2xl">
-                <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">work</span>
-                  Experience ({experience.length})
-                </h4>
-                {experience.length > 0 ? (
-                  <div className="space-y-6">
-                    {experience.map((exp, idx) => (
-                      <div key={idx} className="relative pl-4 border-l-2 border-outline-variant/30">
-                        <div className="absolute w-2 h-2 rounded-full bg-primary -left-[5px] top-1.5"></div>
-                        <h5 className="font-bold text-on-surface">{exp.title || exp.job_title}</h5>
-                        <p className="text-xs font-semibold text-primary">{exp.company || exp.company_name} <span className="text-on-surface-variant">| {exp.duration || exp.date || exp.dates}</span></p>
-                        {Array.isArray(exp.responsibilities) && exp.responsibilities.length > 0 && (
-                          <ul className="mt-3 space-y-1">
-                            {exp.responsibilities.map((res, rIdx) => (
-                              <li key={rIdx} className="text-xs text-on-surface-variant flex items-start gap-2">
-                                <span className="material-symbols-outlined text-[12px] text-primary mt-0.5">arrow_right</span>
-                                <span>{res}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {typeof exp.description === 'string' && (
-                           <p className="mt-2 text-xs text-on-surface-variant">{exp.description}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-on-surface-variant italic">No experience entries successfully extracted.</p>
-                )}
-              </div>
-
-              {/* Education & Projects */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="glass-panel p-6 rounded-2xl">
-                  <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px]">school</span>
-                    Education
-                  </h4>
-                  {education.length > 0 ? (
-                    <div className="space-y-4">
-                      {education.map((edu, idx) => (
-                        <div key={idx}>
-                          <h5 className="text-sm font-bold text-on-surface">{edu.degree}</h5>
-                          <p className="text-xs text-on-surface-variant">{edu.institution || edu.university}</p>
-                          <p className="text-[10px] font-semibold text-primary">{edu.year || edu.date}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-on-surface-variant italic">No education extracted.</p>
-                  )}
-                </div>
-
-                <div className="glass-panel p-6 rounded-2xl">
-                  <h4 className="text-sm font-bold uppercase tracking-wider text-primary mb-4 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
-                    Projects
-                  </h4>
-                  {projects.length > 0 ? (
-                    <div className="space-y-4">
-                      {projects.map((proj, idx) => (
-                        <div key={idx}>
-                          <h5 className="text-sm font-bold text-on-surface">{proj.name || proj.project_name || 'Project'}</h5>
-                          <p className="text-xs text-on-surface-variant line-clamp-2 mt-1">{proj.description}</p>
-                          {proj.technologies && (
-                             <p className="text-[10px] font-semibold text-primary mt-1">{Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-on-surface-variant italic">No projects extracted.</p>
-                  )}
-                </div>
-              </div>
+            {/* Left Column: Document Preview */}
+            <div className="lg:col-span-8 h-full min-h-[600px]">
+              <DocumentViewer resume={selectedResume} />
             </div>
 
             {/* Right Column: Skills & Meta Data */}

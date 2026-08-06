@@ -23,34 +23,9 @@ const Header = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
-  const handleSearch = (e) => {
-    if (e.key === 'Enter') {
-      alert(`Searching for: ${e.target.value}`);
-      e.target.value = '';
-    }
-  };
-
   return (
-    <header className="fixed top-0 right-0 left-64 h-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-outline-variant/30 dark:border-gray-800 shadow-sm z-40 flex justify-between items-center px-lg transition-colors">
-      <div className="flex items-center gap-sm flex-1 max-w-xl">
-        <div className="relative w-full group">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">search</span>
-          <input
-            className="w-full bg-surface-container-low dark:bg-gray-800 dark:text-white border-none rounded-full pl-10 pr-4 py-2 focus:ring-2 focus:ring-primary/20 text-body-sm transition-all outline-none"
-            placeholder="Search skills, courses, or insights..."
-            type="text"
-            onKeyDown={handleSearch}
-          />
-        </div>
-      </div>
+    <header className="fixed top-0 right-0 left-64 h-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-outline-variant/30 dark:border-gray-800 shadow-sm z-40 flex justify-end items-center px-lg transition-colors">
       <div className="flex items-center gap-sm">
-        <button 
-          onClick={() => alert('No new notifications')}
-          className="hover:bg-surface-variant/10 dark:hover:bg-gray-700 rounded-full p-2 transition-all text-on-surface-variant dark:text-gray-300 relative cursor-pointer"
-        >
-          <span className="material-symbols-outlined">notifications</span>
-          <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full animate-ping"></span>
-        </button>
         <button 
           onClick={toggleTheme}
           className="hover:bg-surface-variant/10 dark:hover:bg-gray-700 rounded-full p-2 transition-all text-on-surface-variant dark:text-gray-300 cursor-pointer"
