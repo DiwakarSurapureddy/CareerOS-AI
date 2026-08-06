@@ -130,42 +130,18 @@ export const AuthProvider = ({ children }) => {
   /**
    * Seamlessly authenticate or register using Google account
    */
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (accessToken) => {
     setLoading(true);
     try {
-      const demoGoogleUser = {
-        email: 'diwakar.google@gmail.com',
-        password: 'GoogleOAuth2026!@#$secure',
-        name: 'Diwakar (Google Account)',
-        university: 'Stanford University',
-        graduation_year: '2026'
-      };
-
-      // Try logging in first
-      try {
-        const loginRes = await authService.login({ email: demoGoogleUser.email, password: demoGoogleUser.password });
-        if (loginRes.success && loginRes.data) {
-          const { token, user } = loginRes.data;
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(user));
-          setCurrentUser(user);
-          return { success: true, data: loginRes.data };
-        }
-      } catch (loginErr) {
-        // If login failed (user does not exist yet), proceed to auto-signup
-      }
-
-      // Automatically create the Google account in backend
-      const signupRes = await authService.signup(demoGoogleUser);
-      if (signupRes.success && signupRes.data) {
-        const { token, user } = signupRes.data;
+      const res = await authService.loginWithGoogle(accessToken);
+      if (res.success && res.data) {
+        const { token, user } = res.data;
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
         setCurrentUser(user);
-        return { success: true, data: signupRes.data };
+        return { success: true, data: res.data };
       }
-
-      return { success: false, message: 'Google authentication failed.' };
+      return { success: false, message: res.message || 'Google authentication failed.' };
     } catch (error) {
       const msg = error.userMessage || error.response?.data?.message || error.message || 'Failed to sign in with Google.';
       return { success: false, message: msg };

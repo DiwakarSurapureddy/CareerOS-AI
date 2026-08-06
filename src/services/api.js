@@ -7,7 +7,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 35000, // 35 second timeout to safely support deeper Gemini AI synthesis workflows
+  timeout: 50000, // 50 second timeout to safely support deeper Gemini AI synthesis workflows
 });
 
 // Request Interceptor: Automatically attach stateless JWT Bearer token from storage

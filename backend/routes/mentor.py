@@ -8,8 +8,9 @@ Defines endpoints for interactive Gemini conversational guidance and structured 
 Enforces strict JWT token authentication and user ownership isolation across all endpoints.
 """
 
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, Response
 import logging
+import json
 from utils.auth import token_required
 from services.mentor_service import MentorService
 from models.mentor import MentorChat
@@ -18,13 +19,14 @@ logger = logging.getLogger(__name__)
 
 mentor_bp = Blueprint('mentor', __name__, url_prefix='/api/chat')
 
+
 @mentor_bp.route('', methods=['POST'], strict_slashes=False)
 @mentor_bp.route('/', methods=['POST'], strict_slashes=False)
 @token_required
 def chat_with_mentor():
     """
     Handle incoming candidate chat prompts, enrich with CareerOS profile context,
-    invoke Google Gemini conversational mentor, and persist message turn in MongoDB.
+    invoke Google Gemini conversational mentor, and stream response chunk-by-chunk.
     """
     try:
         user_id = str(g.current_user_id)
@@ -35,19 +37,33 @@ def chat_with_mentor():
 
         message = data.get("message")
         conversation_id = data.get("conversation_id")
+        resume_id = data.get("resume_id")
         test_simulation = data.get("test_simulation")  # Supported for automated integration verification
 
-        ok, resp_payload, status_code = MentorService.process_user_message(
-            user_id=user_id,
-            message=message,
-            conversation_id=conversation_id,
-            test_simulation=test_simulation
-        )
+        if not resume_id:
+            return jsonify({"success": False, "message": "Please select a resume first so I can provide personalized career guidance."}), 400
 
-        return jsonify(resp_payload), status_code
+        if not message or not isinstance(message, str) or not message.strip():
+            return jsonify({"success": False, "message": "Message cannot be empty."}), 400
+
+        def generate():
+            try:
+                for chunk in MentorService.process_user_message_stream(
+                    user_id=user_id,
+                    message=message,
+                    conversation_id=conversation_id,
+                    resume_id=resume_id,
+                    test_simulation=test_simulation
+                ):
+                    yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            except Exception as e:
+                logger.error(f"Error during mentor chat streaming: {e}")
+                yield f"data: {json.dumps({'error': 'The AI Career Mentor is temporarily unavailable. Please try again.'})}\n\n"
+
+        return Response(generate(), mimetype='text/event-stream')
 
     except Exception as e:
-        logger.error(f"Unhandled server exception during POST /api/chat for user {g.get('current_user_id', 'unknown')}: {type(e).__name__} - {e}")
+        logger.error(f"Unhandled server exception during POST /api/chat: {type(e).__name__} - {e}")
         return jsonify({
             "success": False,
             "message": "The AI mentor is temporarily unavailable. Please try again later."
