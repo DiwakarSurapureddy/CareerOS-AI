@@ -30,6 +30,7 @@ const AICareerMentor = () => {
     const initChat = async () => {
       setLoadingHistory(true);
       setError(null);
+      setMessages([defaultInitialMessage]);
       try {
         let currentId = resumeId || localStorage.getItem('current_resume_id');
         if (!currentId) {
@@ -94,26 +95,68 @@ const AICareerMentor = () => {
     if (textToSend === inputText) setInputText('');
     setIsTyping(true);
 
-    try {
-      const res = await chatService.sendMessage(userMsgText, resumeId);
+    const aiMessageId = Date.now() + 1;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: aiMessageId,
+        sender: 'ai',
+        text: '',
+      }
+    ]);
 
-      if (res.success && res.data) {
-        const aiReply = res.data.assistant_message || res.data.reply || res.data.response || res.data.answer || "I have analyzed your career inquiry against our Gemini skill gap model. Feel free to explore the ATS and Skill Gap dashboards for detailed tactical advice.";
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now() + 1,
-            sender: 'ai',
-            text: aiReply,
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_DOMAIN}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message: userMsgText,
+          conversation_id: resumeId,
+          resume_id: resumeId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'AI mentor service unavailable.');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let finished = false;
+      let accumulatedReply = '';
+
+      while (!finished) {
+        const { value, done } = await reader.read();
+        finished = done;
+        if (value) {
+          const chunkStr = decoder.decode(value, { stream: !done });
+          const lines = chunkStr.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.substring(6));
+                if (data.chunk) {
+                  accumulatedReply += data.chunk;
+                  setMessages((prev) => prev.map(m => m.id === aiMessageId ? { ...m, text: accumulatedReply } : m));
+                } else if (data.error) {
+                  throw new Error(data.error);
+                }
+              } catch (e) {
+                // Ignore incomplete JSON chunk errors
+              }
+            }
           }
-        ]);
-      } else {
-        throw new Error(res.message || 'AI mentor service unavailable.');
+        }
       }
     } catch (err) {
       console.error('Chat send error:', err);
-      setError(err.userMessage || 'Could not reach Gemini AI mentor. Please try again.');
-      // Revert the optimistic update if we want, or just leave it and show error.
+      setError(err.userMessage || err.message || 'Could not reach Gemini AI mentor. Please try again.');
+      setMessages((prev) => prev.filter(m => m.id !== aiMessageId || m.text !== ''));
     } finally {
       setIsTyping(false);
     }
