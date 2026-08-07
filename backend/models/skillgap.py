@@ -25,17 +25,28 @@ class SkillGapAnalysis:
             "user_id": str(user_id),
             "resume_id": str(resume_id),
             "target_role": analysis_data.get("target_role", "Software Engineer"),
+            "candidate_info": analysis_data.get("candidate_info", {}),
+            "resume_match_score": int(analysis_data.get("resume_match_score", 0)),
+            "ai_readiness_score": int(analysis_data.get("ai_readiness_score", 0)),
+            "hiring_probability": int(analysis_data.get("hiring_probability", 0)),
             "skill_match_percentage": int(analysis_data.get("skill_match_percentage", 0)),
             "required_skill_match_percentage": int(analysis_data.get("required_skill_match_percentage", 0)),
             "preferred_skill_match_percentage": int(analysis_data.get("preferred_skill_match_percentage", 0)),
             "matched_skills": analysis_data.get("matched_skills", []),
             "missing_skills": analysis_data.get("missing_skills", []),
             "partially_matched_skills": analysis_data.get("partially_matched_skills", []),
+            "strong_skills": analysis_data.get("strong_skills", []),
+            "partial_skills": analysis_data.get("partial_skills", []),
+            "industry_benchmark": analysis_data.get("industry_benchmark", []),
             "priority_skills": analysis_data.get("priority_skills", []),
             "skill_gap_summary": analysis_data.get("skill_gap_summary", ""),
             "learning_roadmap": analysis_data.get("learning_roadmap", []),
+            "recommended_certifications": analysis_data.get("recommended_certifications", []),
             "recommended_projects": analysis_data.get("recommended_projects", []),
             "recommended_resources": analysis_data.get("recommended_resources", []),
+            "ats_improvement_report": analysis_data.get("ats_improvement_report", {}),
+            "interview_readiness": analysis_data.get("interview_readiness", {}),
+            "ai_recommendations": analysis_data.get("ai_recommendations", {}),
             "career_readiness": analysis_data.get("career_readiness", {}),
             "created_at": now,
             "updated_at": now
@@ -67,6 +78,30 @@ class SkillGapAnalysis:
             return None
 
     @classmethod
+    def find_by_resume_and_role(cls, resume_id: str, target_role: str, user_id: str = None):
+        """
+        Find the most recent skill gap analysis for a specific resume + target role.
+        Uses case-insensitive matching so 'Data Scientist' and 'data scientist' are treated as equal.
+        Returns the serialized analysis dict if found, or None.
+        """
+        collection = cls.get_collection()
+        if collection is None:
+            return None
+        try:
+            import re as _re
+            query = {
+                "resume_id": str(resume_id),
+                "target_role": {"$regex": f"^{_re.escape(target_role.strip())}$", "$options": "i"}
+            }
+            if user_id is not None:
+                query["user_id"] = str(user_id)
+            doc = collection.find_one(query, sort=[("created_at", -1)])
+            return cls.to_json_safe(doc) if doc else None
+        except Exception as e:
+            logger.error(f"Error in find_by_resume_and_role for resume {resume_id}, role '{target_role}': {e}")
+            return None
+
+    @classmethod
     def find_by_resume(cls, resume_id: str, user_id: str = None):
         """Retrieve all historical Skill Gap analyses performed on a specific resume ID."""
         collection = cls.get_collection()
@@ -82,6 +117,7 @@ class SkillGapAnalysis:
             logger.error(f"Error querying Skill Gap history for resume {resume_id}: {e}")
             return []
 
+
     @staticmethod
     def to_json_safe(doc: dict) -> dict:
         """Convert MongoDB document to safe serializable JSON representation."""
@@ -95,17 +131,28 @@ class SkillGapAnalysis:
             "user_id": str(doc.get("user_id", "")),
             "resume_id": str(doc.get("resume_id", "")),
             "target_role": doc.get("target_role", ""),
+            "candidate_info": doc.get("candidate_info", {}),
+            "resume_match_score": int(doc.get("resume_match_score", doc.get("skill_match_percentage", 0))),
+            "ai_readiness_score": int(doc.get("ai_readiness_score", 0)),
+            "hiring_probability": int(doc.get("hiring_probability", 0)),
             "skill_match_percentage": int(doc.get("skill_match_percentage", 0)),
             "required_skill_match_percentage": int(doc.get("required_skill_match_percentage", 0)),
             "preferred_skill_match_percentage": int(doc.get("preferred_skill_match_percentage", 0)),
             "matched_skills": doc.get("matched_skills", []),
             "missing_skills": doc.get("missing_skills", []),
             "partially_matched_skills": doc.get("partially_matched_skills", []),
+            "strong_skills": doc.get("strong_skills", []),
+            "partial_skills": doc.get("partial_skills", []),
+            "industry_benchmark": doc.get("industry_benchmark", []),
             "priority_skills": doc.get("priority_skills", []),
             "skill_gap_summary": doc.get("skill_gap_summary", ""),
             "learning_roadmap": doc.get("learning_roadmap", []),
+            "recommended_certifications": doc.get("recommended_certifications", []),
             "recommended_projects": doc.get("recommended_projects", []),
             "recommended_resources": doc.get("recommended_resources", []),
+            "ats_improvement_report": doc.get("ats_improvement_report", {}),
+            "interview_readiness": doc.get("interview_readiness", {}),
+            "ai_recommendations": doc.get("ai_recommendations", {}),
             "career_readiness": doc.get("career_readiness", {}),
             "created_at": created_at_val.isoformat() if hasattr(created_at_val, "isoformat") else str(created_at_val),
             "updated_at": updated_at_val.isoformat() if hasattr(updated_at_val, "isoformat") else str(updated_at_val)

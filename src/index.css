@@ -41,6 +41,7 @@
   --animate-pulse-subtle: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-ai-pulse: ai-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-typing: typing 1.4s infinite;
+  --animate-fadeIn: fadeIn 0.5s ease-out forwards;
 
   @keyframes float {
     0%, 100% { transform: translateY(0); }
@@ -57,6 +58,10 @@
   @keyframes typing {
     0%, 60%, 100% { transform: translateY(0); }
     30% { transform: translateY(-4px); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 }
 
@@ -220,3 +225,23 @@ body {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   vertical-align: middle;
 }
+
+/* ─── Skill Gap Dashboard Utilities ─── */
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Micro-opacity background for dark glassmorphism cards */
+.bg-white\/3 {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Dark mode scrollbar for skill lists */
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+

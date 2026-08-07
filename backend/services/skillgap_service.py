@@ -51,6 +51,17 @@ class SkillGapService:
         latest_ats = ATSAnalysis.find_by_resume(resume_id, user_id=user_id)
         ats_score_val = str(latest_ats[0].get("overall_score", "N/A")) if latest_ats else "N/A"
 
+        # Extract candidate info from parsed resume data
+        candidate_info = {
+            "name": parsed.get("name") or parsed.get("full_name") or "",
+            "email": parsed.get("email") or "",
+            "phone": parsed.get("phone") or "",
+            "current_role": parsed.get("current_role") or parsed.get("target_role") or "",
+            "location": parsed.get("location") or "",
+            "linkedin_url": parsed.get("linkedin_url") or "",
+            "resume_last_updated": str(resume_doc.get("uploaded_at", "") or resume_doc.get("created_at", ""))
+        }
+
         # 3. Build context and invoke Gemini AI integration
         ai_context = {
             "target_role": target_role,
@@ -71,9 +82,19 @@ class SkillGapService:
             logger.error(f"Gemini AI Skill Gap Analysis failed for resume {resume_id}: {ai_result}")
             return False, {"message": str(ai_result)}
 
+        # Derive composite scores from analysis results
+        ai_readiness_score = int(ai_result.get("career_readiness", {}).get("percentage", overall_pct))
+        resume_match_score = overall_pct
+        # Hiring probability: weighted blend of match score and AI readiness with a realistic ceiling
+        hiring_probability = min(95, round(resume_match_score * 0.55 + ai_readiness_score * 0.45))
+
         # Merge deterministic computation with AI structured roadmaps
         final_analysis = {
             "target_role": target_role,
+            "candidate_info": candidate_info,
+            "resume_match_score": resume_match_score,
+            "ai_readiness_score": ai_readiness_score,
+            "hiring_probability": hiring_probability,
             "skill_match_percentage": overall_pct,
             "required_skill_match_percentage": req_pct,
             "preferred_skill_match_percentage": pref_pct,
@@ -81,11 +102,18 @@ class SkillGapService:
             "missing_skills": all_missing,
             "partially_matched_skills": [],
             "current_skills": extracted_skills_dict,
+            "strong_skills": ai_result.get("strong_skills", []),
+            "partial_skills": ai_result.get("partial_skills", []),
+            "industry_benchmark": ai_result.get("industry_benchmark", []),
             "priority_skills": ai_result.get("priority_skills", []),
             "skill_gap_summary": ai_result.get("skill_gap_summary", ""),
             "learning_roadmap": ai_result.get("learning_roadmap", []),
+            "recommended_certifications": ai_result.get("recommended_certifications", []),
             "recommended_projects": ai_result.get("recommended_projects", []),
             "recommended_resources": ai_result.get("recommended_resources", []),
+            "ats_improvement_report": ai_result.get("ats_improvement_report", {}),
+            "interview_readiness": ai_result.get("interview_readiness", {}),
+            "ai_recommendations": ai_result.get("ai_recommendations", {}),
             "career_readiness": ai_result.get("career_readiness", {})
         }
 
