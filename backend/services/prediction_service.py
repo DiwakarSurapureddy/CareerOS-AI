@@ -354,11 +354,39 @@ class PredictionService:
                 if "transition_difficulty" not in r:
                     r["transition_difficulty"] = "Low" if r["match_percentage"] >= 75 else ("Moderate" if r["match_percentage"] >= 55 else "High")
 
+        # Enrich each recommendation item with frontend keys to avoid key mismatches
+        for r in recs:
+            r["title"] = r.get("career", "")
+            r["role"] = r.get("career", "")
+            r["role_name"] = r.get("career", "")
+            r["description"] = r.get("reason", "")
+            r["desc"] = r.get("reason", "")
+            r["reasoning"] = r.get("reason", "")
+            
+            # Map skills
+            skills_list = []
+            if "current_skills" in r:
+                skills_list.extend(r["current_skills"])
+            if "missing_skills" in r:
+                skills_list.extend([f"{s} (Missing)" for s in r["missing_skills"]])
+            r["skills"] = skills_list
+            r["required_skills"] = skills_list
+            r["key_skills"] = skills_list
+            
+            # Lookup salary prediction
+            matching_sal = next((s for s in salary_preds if s.get("target_role", "").lower() == r["career"].lower()), None)
+            if matching_sal:
+                r["salary_range"] = f"${matching_sal.get('min_salary', 0):,} - ${matching_sal.get('max_salary', 0):,}"
+                r["salary"] = r["salary_range"]
+                
         return {
             "user_id": str(user_id),
             "resume_id": str(resume_id),
             "target_role": target_role.strip() if target_role else "",
             "recommended_careers": recs,
+            "recommended_roles": recs,
+            "careers": recs,
+            "predictions": recs,
             "career_match_scores": match_scores,
             "salary_predictions": salary_preds,
             "career_readiness": readiness,

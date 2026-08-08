@@ -103,7 +103,23 @@ def get_conversation_history(conversation_id):
         ok, res = MentorChat.get_by_id_and_user(conversation_id, user_id)
 
         if not ok or not isinstance(res, dict):
-            return jsonify({"success": False, "message": "Conversation record not found or access denied."}), 404
+            from models.resume import Resume
+            # Verify if the conversation ID (which maps to resume_id) belongs to the authenticated user
+            resume_doc = Resume.find_by_id(str(conversation_id).strip(), user_id)
+            if not resume_doc:
+                return jsonify({"success": False, "message": "Conversation record not found or access denied."}), 404
+            
+            # Start clean with empty messages on 200 OK
+            return jsonify({
+                "success": True,
+                "data": {
+                    "conversation_id": str(conversation_id),
+                    "title": "Career Guidance",
+                    "messages": [],
+                    "created_at": None,
+                    "updated_at": None
+                }
+            }), 200
 
         # Return standardized JSON response matching API specs
         return jsonify({

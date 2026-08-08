@@ -28,7 +28,7 @@ class GeminiService:
         Never exposes raw API keys or internal stack traces to end users.
         """
         api_key = os.getenv('GEMINI_API_KEY', '').strip()
-        model_name = os.getenv('GEMINI_MODEL', 'gemini-flash-latest').strip()
+        model_name = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash').strip()
         
         if current_app and not api_key:
             api_key = current_app.config.get('GEMINI_API_KEY', '').strip()
@@ -626,47 +626,52 @@ Analyze the user's resume data against their target career role: "{target_role}"
                 return False, "AI analysis service is currently experiencing high volume. Please wait a moment and try again."
 
         api_key = os.getenv("GEMINI_API_KEY")
-        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
         if not api_key or not api_key.strip():
             logger.error("Gemini AI Career Prediction failed: GEMINI_API_KEY environment variable is missing or unconfigured.")
             return False, "Gemini API key is not configured on the server."
 
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(model_name)
-            
-            prompt = cls._build_prediction_prompt(ctx)
-            logger.info("Transmitting career prediction prompt to Google Gemini LLM Service...")
-            response = model.generate_content(prompt)
-            
-            is_valid, parsed_result = cls._parse_prediction_json(response.text)
-            if is_valid:
-                logger.info("Gemini AI Career Prediction synthesized and validated successfully.")
-                return True, parsed_result
-            else:
-                logger.warning(f"Initial Gemini response failed validation ({parsed_result}). Executing 1x automated retry loop...")
-                retry_prompt = prompt + "\n\nCRITICAL RETRY INSTRUCTION: Your previous response was rejected due to malformed syntax or missing keys. You MUST return ONLY valid JSON matching the exact schema above with NO markdown tags or plain text explanations."
-                response_retry = model.generate_content(retry_prompt)
-                is_valid_retry, parsed_retry = cls._parse_prediction_json(response_retry.text)
+        # Safe fallback order of models to maximize daily free tier quotas
+        models_to_try = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-3.5-flash"]
+        env_model = os.getenv("GEMINI_MODEL", "").strip()
+        if env_model:
+            models_to_try = [env_model] + [m for m in models_to_try if m != env_model]
+
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+
+        last_error = None
+        for model_name in models_to_try:
+            logger.info(f"Attempting career prediction generation using model: {model_name}")
+            try:
+                model = genai.GenerativeModel(model_name)
+                prompt = cls._build_prediction_prompt(ctx)
+                response = model.generate_content(prompt)
                 
-                if is_valid_retry:
-                    logger.info("Gemini AI Career Prediction succeeded on automated retry.")
-                    return True, parsed_retry
+                is_valid, parsed_result = cls._parse_prediction_json(response.text)
+                if is_valid:
+                    logger.info(f"Gemini AI Career Prediction synthesized and validated successfully using model: {model_name}")
+                    return True, parsed_result
                 else:
-                    logger.error(f"Gemini response failed JSON validation after automatic retry: {parsed_retry}")
-                    return False, "AI service returned invalid structured output after automatic retry. Analysis aborted to protect database integrity."
-                    
-        except Exception as e:
-            err_str = str(e).lower()
-            logger.error(f"Upstream Google Gemini exception during career prediction: {type(e).__name__} - {e}")
-            if "429" in err_str or "resource exhausted" in err_str or "quota" in err_str or "rate" in err_str:
-                return False, "AI analysis service is currently experiencing high volume. Please wait a moment and try again."
-            elif "timeout" in err_str or "connection" in err_str or "network" in err_str or "unreachable" in err_str:
-                return False, "Unable to generate career prediction from AI service due to network timeout or API error."
-            else:
-                return False, f"AI analysis failed due to an error: {str(e)[:100]}"
+                    logger.warning(f"Initial response from model {model_name} failed validation. Executing 1x retry...")
+                    retry_prompt = prompt + "\n\nCRITICAL RETRY INSTRUCTION: Your previous response was rejected due to malformed syntax or missing keys. You MUST return ONLY valid JSON matching the exact schema above with NO markdown tags or plain text explanations."
+                    response_retry = model.generate_content(retry_prompt)
+                    is_valid_retry, parsed_retry = cls._parse_prediction_json(response_retry.text)
+                    if is_valid_retry:
+                        logger.info(f"Gemini AI Career Prediction succeeded on automated retry using model: {model_name}")
+                        return True, parsed_retry
+                    else:
+                        last_error = f"JSON validation failed on model {model_name}"
+            except Exception as e:
+                err_str = str(e).lower()
+                last_error = e
+                if "429" in err_str or "quota" in err_str or "exhausted" in err_str:
+                    logger.warning(f"Quota exceeded for model {model_name} during prediction. Falling back...")
+                    continue
+                logger.error(f"Error on model {model_name} during prediction: {e}")
+
+        logger.error(f"All prediction models failed. Last error: {last_error}")
+        return False, "Unable to generate career prediction from AI service due to rate limits."
 
     @classmethod
     def _build_prediction_prompt(cls, ctx: dict) -> str:
@@ -836,13 +841,12 @@ Analyze the user's verified background, skills, projects, and evaluation scores 
         }
 
     @classmethod
-    @classmethod
     def generate_mentor_reply(cls, user_message: str, history: list, context: dict, test_simulation: str = None) -> tuple[bool, str]:
         """
         Generate interactive AI Career Mentor response via Google Gemini API using relevant CareerOS context.
         """
         api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
 
         if not api_key:
             return False, "The AI mentor is temporarily unavailable. Please try again later."
@@ -881,7 +885,6 @@ Analyze the user's verified background, skills, projects, and evaluation scores 
             raise Exception(f"Simulated error: {test_simulation}")
 
         api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
 
         if not api_key:
             logger.warning("AI Mentor request failed: GEMINI_API_KEY is unconfigured or empty in environment.")
@@ -891,35 +894,48 @@ Analyze the user's verified background, skills, projects, and evaluation scores 
             raise Exception("Gemini API key is not configured on the server.")
 
         prompt = cls._build_mentor_prompt(user_message, history, context)
-        logger.info("Transmitting interactive conversational query to Google Gemini LLM Service...")
         
-        # Low latency generation settings
+        # Full detailed generation settings
         generation_config = {
             "temperature": 0.4,
             "top_p": 0.9,
-            "max_output_tokens": 500
+            "max_output_tokens": 1500
         }
+
+        # Safe fallback order of models to maximize daily free tier quotas
+        models_to_try = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-3.5-flash"]
+        env_model = os.getenv("GEMINI_MODEL", "").strip()
+        if env_model:
+            models_to_try = [env_model] + [m for m in models_to_try if m != env_model]
 
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name, generation_config=generation_config)
 
-        for attempt in range(2):
-            try:
-                response = model.generate_content(prompt, stream=True, request_options={"timeout": 45.0})
-                has_yielded = False
-                for chunk in response:
-                    if chunk.text:
-                        has_yielded = True
-                        yield chunk.text
-                if has_yielded:
-                    return
-            except Exception as e:
-                if attempt == 1:
-                    raise e
-                logger.warning(f"Retrying Gemini generation due to error: {e}")
+        for model_name in models_to_try:
+            logger.info(f"Attempting conversational generation using model: {model_name}")
+            
+            for attempt in range(2):
+                try:
+                    model = genai.GenerativeModel(model_name, generation_config=generation_config)
+                    response = model.generate_content(prompt, stream=True, request_options={"timeout": 45.0})
+                    has_yielded = False
+                    for chunk in response:
+                        if chunk.text:
+                            has_yielded = True
+                            yield chunk.text
+                    if has_yielded:
+                        return  # Successful reply, exit completely
+                except Exception as e:
+                    err_str = str(e).lower()
+                    if "429" in err_str or "quota" in err_str or "exhausted" in err_str:
+                        logger.warning(f"Quota exceeded for model {model_name} on attempt {attempt+1}. Falling back...")
+                        break  # Break out of retry loop to try the next model
+                    
+                    if attempt == 1:
+                        raise e
+                    logger.warning(f"Retrying model {model_name} due to network error: {e}")
         
-        raise Exception("Gemini AI returned empty response.")
+        raise Exception("The AI Career Mentor is temporarily unavailable. Please try again.")
 
     @classmethod
     def _build_mentor_prompt(cls, user_message: str, history: list, context: dict) -> str:
@@ -949,11 +965,11 @@ Analyze the user's verified background, skills, projects, and evaluation scores 
             }
 
         # Compact length instruction
-        len_text = "Respond in 5-8 sentences."
+        len_text = "Provide a comprehensive, complete response detailing specific career paths, skills, projects, and actionable next steps based on the parsed resume context."
         if length_instruction == "detailed":
-            len_text = "Provide a detailed, thorough explanation."
+            len_text = "Provide a comprehensive, highly detailed response using their resume context where relevant. Expand fully on career paths, skills, projects, and actionable next steps."
         elif length_instruction == "concise":
-            len_text = "Respond concisely in 2-4 sentences."
+            len_text = "Keep your answer very brief (1-2 sentences)."
 
         prompt_lines = [
             "SYSTEM: You are the CareerOS AI Career Mentor, a professional tech engineering coach.",

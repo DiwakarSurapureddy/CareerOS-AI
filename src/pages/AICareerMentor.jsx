@@ -138,16 +138,20 @@ const AICareerMentor = () => {
           const lines = chunkStr.split('\n');
           for (const line of lines) {
             if (line.startsWith('data: ')) {
+              let parsedError = null;
               try {
                 const data = JSON.parse(line.substring(6));
                 if (data.chunk) {
                   accumulatedReply += data.chunk;
                   setMessages((prev) => prev.map(m => m.id === aiMessageId ? { ...m, text: accumulatedReply } : m));
                 } else if (data.error) {
-                  throw new Error(data.error);
+                  parsedError = new Error(data.error);
                 }
               } catch (e) {
                 // Ignore incomplete JSON chunk errors
+              }
+              if (parsedError) {
+                throw parsedError;
               }
             }
           }

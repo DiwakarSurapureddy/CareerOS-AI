@@ -92,6 +92,40 @@ def predict_career():
         logger.error(f"Unhandled server exception during POST /api/career/predict: {type(e).__name__} - {e}")
         return jsonify({"success": False, "message": "Unable to generate career prediction"}), 500
 
+def _map_prediction_keys(prediction_data):
+    if not prediction_data or not isinstance(prediction_data, dict):
+        return prediction_data
+    
+    # Handle both raw prediction result dict and DB wrapper document
+    pred_doc = prediction_data
+    recs = pred_doc.get("recommended_careers", [])
+    if recs and isinstance(recs, list):
+        for r in recs:
+            if isinstance(r, dict):
+                r["title"] = r.get("career", "")
+                r["role"] = r.get("career", "")
+                r["role_name"] = r.get("career", "")
+                r["description"] = r.get("reason", "")
+                r["desc"] = r.get("reason", "")
+                r["reasoning"] = r.get("reason", "")
+                
+                if "skills" not in r:
+                    skills_list = []
+                    if "current_skills" in r:
+                        skills_list.extend(r["current_skills"])
+                    if "missing_skills" in r:
+                        skills_list.extend([f"{s} (Missing)" for s in r["missing_skills"]])
+                    r["skills"] = skills_list
+                    r["required_skills"] = skills_list
+                    r["key_skills"] = skills_list
+
+        pred_doc["recommended_roles"] = recs
+        pred_doc["careers"] = recs
+        pred_doc["predictions"] = recs
+        
+    return prediction_data
+
+
 @prediction_bp.route('/<prediction_id>', methods=['GET'])
 @token_required
 def get_prediction_report(prediction_id):
@@ -106,15 +140,17 @@ def get_prediction_report(prediction_id):
         if not ok:
             return jsonify({"success": False, "message": "Career prediction record not found or access denied."}), 404
 
+        mapped_res = _map_prediction_keys(res)
         return jsonify({
             "success": True,
             "message": "Career prediction report retrieved successfully",
-            "data": res
+            "data": mapped_res
         }), 200
 
     except Exception as e:
         logger.error(f"Error handling GET /api/career/{prediction_id}: {type(e).__name__} - {e}")
         return jsonify({"success": False, "message": "Failed to retrieve career prediction record."}), 500
+
 
 @prediction_bp.route('/resume/<resume_id>', methods=['GET'])
 @token_required
@@ -135,10 +171,18 @@ def get_resume_prediction_history(resume_id):
         if not hist_ok:
             return jsonify({"success": False, "message": "Failed to retrieve career prediction history from database."}), 500
 
+        mapped_hist = []
+        if isinstance(hist_res, list):
+            mapped_hist = [_map_prediction_keys(doc) for doc in hist_res]
+        elif isinstance(hist_res, dict):
+            mapped_hist = _map_prediction_keys(hist_res)
+        else:
+            mapped_hist = hist_res
+
         return jsonify({
             "success": True,
             "message": "Career prediction history retrieved successfully",
-            "data": hist_res
+            "data": mapped_hist
         }), 200
 
     except Exception as e:
