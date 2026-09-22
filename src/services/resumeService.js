@@ -48,6 +48,17 @@ export const resumeService = {
   deleteResume: async (resumeId) => {
     const response = await api.delete(`/resume/${resumeId}`);
     return response.data;
+  },
+
+  /**
+   * Fetch the raw resume file as a Blob for previewing
+   * @param {string} resumeId
+   */
+  downloadResumeFile: async (resumeId) => {
+    const response = await api.get(`/resume/${resumeId}/file`, {
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };
 

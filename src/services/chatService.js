@@ -6,10 +6,13 @@ export const chatService = {
    * @param {string} message - User query or coaching prompt
    * @param {string} [conversationId=null] - UUID of existing chat session if continuing discussion
    */
-  sendMessage: async (message, conversationId = null) => {
+  sendMessage: async (message, conversationId = null, resumeId = null) => {
     const payload = { message: message.trim() };
     if (conversationId && String(conversationId).trim()) {
       payload.conversation_id = conversationId;
+    }
+    if (resumeId && String(resumeId).trim()) {
+      payload.resume_id = resumeId;
     }
     const response = await api.post('/chat', payload);
     return response.data;

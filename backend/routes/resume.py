@@ -1,5 +1,6 @@
+import os
 import logging
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, send_file
 from utils.auth import token_required
 from services.resume_service import ResumeService
 from models.resume import Resume
@@ -81,6 +82,31 @@ def get_resume_details(resume_id):
         "message": "Resume details retrieved successfully",
         "data": Resume.to_json_safe(doc)
     }), 200
+
+@resume_bp.route('/<resume_id>/file', methods=['GET'])
+@token_required
+def get_resume_file(resume_id):
+    """
+    Serve the raw resume file (PDF, DOCX, TXT) for previewing.
+    Requires header: Authorization: Bearer <JWT_TOKEN>
+    """
+    user_id = g.current_user_id
+    doc = Resume.find_by_id(resume_id, user_id=user_id)
+    
+    if not doc:
+        return jsonify({
+            "success": False,
+            "message": "Resume not found or access denied."
+        }), 404
+        
+    file_path = doc.get('file_path')
+    if not file_path or not os.path.exists(file_path):
+        return jsonify({
+            "success": False,
+            "message": "File not found on server."
+        }), 404
+        
+    return send_file(file_path)
 
 @resume_bp.route('/<resume_id>', methods=['DELETE'])
 @token_required

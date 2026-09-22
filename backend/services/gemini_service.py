@@ -28,7 +28,7 @@ class GeminiService:
         Never exposes raw API keys or internal stack traces to end users.
         """
         api_key = os.getenv('GEMINI_API_KEY', '').strip()
-        model_name = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash').strip()
+        model_name = os.getenv('GEMINI_MODEL', 'gemini-flash-latest').strip()
         
         if current_app and not api_key:
             api_key = current_app.config.get('GEMINI_API_KEY', '').strip()
@@ -340,7 +340,7 @@ Generate a single JSON object containing exactly the following keys and data for
                 return False, "AI analysis service is currently experiencing high volume. Please wait a moment and try again."
 
         api_key = os.getenv("GEMINI_API_KEY")
-        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
         if not api_key or not api_key.strip():
             logger.error("Gemini AI Career Prediction failed: GEMINI_API_KEY environment variable is missing or unconfigured.")
@@ -550,103 +550,139 @@ Analyze the user's verified background, skills, projects, and evaluation scores 
         }
 
     @classmethod
+    @classmethod
     def generate_mentor_reply(cls, user_message: str, history: list, context: dict, test_simulation: str = None) -> tuple[bool, str]:
         """
         Generate interactive AI Career Mentor response via Google Gemini API using relevant CareerOS context.
-        Enforces strict safety rules: zero credential exposure, safe fallback error messaging without crashing Flask,
-        and legal disclaimers against employment or salary guarantees.
         """
-        # 1. Support automated testing simulation modes
-        if test_simulation == "success":
-            logger.info("Test simulation requested: Returning structured simulated AI mentor guidance.")
-            return True, cls._generate_simulated_mentor_reply(user_message, context)
-        elif test_simulation == "api_failure":
-            logger.warning("Test simulation requested: Simulating upstream Gemini API failure.")
-            return False, "The AI mentor is temporarily unavailable. Please try again later."
-        elif test_simulation == "timeout":
-            logger.warning("Test simulation requested: Simulating Gemini network timeout.")
-            return False, "The AI mentor is temporarily unavailable. Please try again later."
-        elif test_simulation == "rate_limit":
-            logger.warning("Test simulation requested: Simulating Gemini rate limit quota exhaustion.")
-            return False, "The AI mentor is temporarily unavailable. Please try again later."
-        elif test_simulation == "missing_key":
-            logger.warning("Test simulation requested: Simulating missing API key.")
-            return False, "The AI mentor is temporarily unavailable. Please try again later."
-
         api_key = os.getenv("GEMINI_API_KEY", "").strip()
-        model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash").strip()
+        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
 
         if not api_key:
-            logger.warning("AI Mentor request failed: GEMINI_API_KEY is unconfigured or empty in environment.")
-            # If in development/testing mode or fallback, provide safe fallback guidance instead of crashing
-            if os.getenv("FLASK_ENV") == "testing" or test_simulation == "auto_fallback":
-                return True, cls._generate_simulated_mentor_reply(user_message, context)
             return False, "The AI mentor is temporarily unavailable. Please try again later."
 
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel(model_name)
-
             prompt = cls._build_mentor_prompt(user_message, history, context)
-            logger.info("Transmitting interactive conversational query to Google Gemini LLM Service...")
             
-            response = model.generate_content(prompt)
-            if not response or not response.text or not response.text.strip():
-                logger.error("Gemini AI returned empty conversational response.")
-                return False, "The AI mentor is temporarily unavailable. Please try again later."
-
-            reply_text = response.text.strip()
-            logger.info("Gemini AI Career Mentor reply generated successfully.")
-            return True, reply_text
-
-        except Exception as e:
-            err_str = str(e).lower()
-            logger.error(f"Upstream Gemini API exception during AI mentor chat: {type(e).__name__} - {e}")
-            # Ensure safe user-facing error message without exposing internal stack traces or API keys
+            for attempt in range(2):
+                try:
+                    response = model.generate_content(prompt, request_options={"timeout": 45.0})
+                    if response and response.text and response.text.strip():
+                        return True, response.text.strip()
+                except Exception as e:
+                    if attempt == 1:
+                        raise e
             return False, "The AI mentor is temporarily unavailable. Please try again later."
+        except Exception as e:
+            logger.error(f"Gemini API exception: {e}")
+            return False, "The AI mentor is temporarily unavailable. Please try again later."
+
+    @classmethod
+    def generate_mentor_reply_stream(cls, user_message: str, history: list, context: dict, test_simulation: str = None):
+        """
+        Stream interactive AI Career Mentor response via Google Gemini API using dynamic context.
+        Enforces timeout of 45 seconds and 1 retry loop.
+        """
+        if test_simulation == "success":
+            logger.info("Test simulation requested: Returning simulated AI mentor reply.")
+            yield cls._generate_simulated_mentor_reply(user_message, context)
+            return
+        elif test_simulation in ["api_failure", "timeout", "rate_limit", "missing_key"]:
+            logger.warning(f"Test simulation requested: Simulating {test_simulation} error.")
+            raise Exception(f"Simulated error: {test_simulation}")
+
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest").strip()
+
+        if not api_key:
+            logger.warning("AI Mentor request failed: GEMINI_API_KEY is unconfigured or empty in environment.")
+            if os.getenv("FLASK_ENV") == "testing" or test_simulation == "auto_fallback":
+                yield cls._generate_simulated_mentor_reply(user_message, context)
+                return
+            raise Exception("Gemini API key is not configured on the server.")
+
+        prompt = cls._build_mentor_prompt(user_message, history, context)
+        logger.info("Transmitting interactive conversational query to Google Gemini LLM Service...")
+        
+        # Low latency generation settings
+        generation_config = {
+            "temperature": 0.4,
+            "top_p": 0.9,
+            "max_output_tokens": 500
+        }
+
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name, generation_config=generation_config)
+
+        for attempt in range(2):
+            try:
+                response = model.generate_content(prompt, stream=True, request_options={"timeout": 45.0})
+                has_yielded = False
+                for chunk in response:
+                    if chunk.text:
+                        has_yielded = True
+                        yield chunk.text
+                if has_yielded:
+                    return
+            except Exception as e:
+                if attempt == 1:
+                    raise e
+                logger.warning(f"Retrying Gemini generation due to error: {e}")
+        
+        raise Exception("Gemini AI returned empty response.")
 
     @classmethod
     def _build_mentor_prompt(cls, user_message: str, history: list, context: dict) -> str:
         """
-        Construct a clean, professional system prompt for the AI Career Mentor.
-        Strictly filters out passwords, tokens, or credentials from context.
+        Construct a concise system prompt for the AI Career Mentor.
         """
-        # Ensure clean context stripped of any accidental credentials or secret tokens
-        safe_context = {
-            "target_role": context.get("target_role", "Software Engineer / Tech Professional"),
-            "current_skills": context.get("current_skills", []),
-            "missing_skills": context.get("missing_skills", []),
-            "ats_score": context.get("ats_score", "N/A"),
-            "career_readiness": context.get("career_readiness", "N/A"),
-            "recommended_careers": context.get("recommended_careers", []),
-            "career_roadmap_summary": context.get("career_roadmap_summary", [])
-        }
+        intent = context.get("detected_intent", "General Career Question")
+        length_instruction = context.get("length_instruction", "advice")
+        
+        # Build safe context based on intent
+        safe_context = {}
+        if intent == "ATS Question":
+            safe_context = {"ats_score": context.get("ats_score", "N/A"), "target_role": context.get("target_role")}
+        elif intent == "Skill Gap Question":
+            safe_context = {"missing_skills": context.get("missing_skills", []), "current_skills": context.get("current_skills", [])}
+        elif intent == "Resume Question":
+            safe_context = {"projects": context.get("projects", []), "experience": context.get("experience", []), "candidate_name": context.get("candidate_name")}
+        elif intent == "Career Prediction" or intent == "Career Roadmap":
+            safe_context = {"career_readiness": context.get("career_readiness", "N/A"), "career_roadmap_summary": context.get("career_roadmap_summary", []), "recommended_careers": context.get("recommended_careers", [])}
+        else:
+            safe_context = {
+                "target_role": context.get("target_role", "Software Engineer / Tech Professional"),
+                "current_skills": context.get("current_skills", []),
+                "ats_score": context.get("ats_score", "N/A"),
+                "career_readiness": context.get("career_readiness", "N/A"),
+                "candidate_name": context.get("candidate_name", "")
+            }
+
+        # Compact length instruction
+        len_text = "Respond in 5-8 sentences."
+        if length_instruction == "detailed":
+            len_text = "Provide a detailed, thorough explanation."
+        elif length_instruction == "concise":
+            len_text = "Respond concisely in 2-4 sentences."
 
         prompt_lines = [
-            "SYSTEM PROMPT: You are the CareerOS AI Career Mentor and Executive Engineering Tech Coach.",
-            "ROLE & TONE:",
-            "1. Be supportive, objective, practical, and professional. Behave like an experienced tech engineering coach, not a generic chatbot.",
-            "2. Give concrete, actionable advice on resume formatting, ATS optimization, bridging missing skill gaps, technical & behavioral interviews (STAR method), project building, and career trajectories.",
-            "3. Personalize your response using the available CareerOS Profile Data provided below. If the candidate asks about their skills, ATS scores, or gaps, reference this verified data directly.",
-            "4. If a specific required piece of data is missing or unavailable, clearly state that the information is not currently available instead of hallucinating or inventing credentials.",
-            "5. Explain complex technical paradigms cleanly and ask thoughtful clarifying questions when appropriate.",
-            "6. CRITICAL ETHICAL & LEGAL BOUNDARIES: NEVER guarantee job offers, employment, or exact salaries. Explicitly mention that salary metrics are industry estimated benchmarks if asked about compensation. Never present an AI prediction as guaranteed or 100% certain.",
-            "\nAVAILABLE USER CAREEROS PROFILE CONTEXT:",
-            f"{json.dumps(safe_context, indent=2)}",
-            "\nRECENT CONVERSATION HISTORY:"
+            "SYSTEM: You are the CareerOS AI Career Mentor, a professional tech engineering coach.",
+            f"INSTRUCTION: Be practical and actionable. {len_text} NEVER guarantee job offers/salaries.",
+            f"CONTEXT (Intent: {intent}): {json.dumps(safe_context)}",
+            "HISTORY:"
         ]
 
         if history and isinstance(history, list):
             for turn in history:
-                role_label = "Candidate" if turn.get("role") == "user" else "AI Mentor"
-                prompt_lines.append(f"{role_label}: {turn.get('content', '')}")
-        else:
-            prompt_lines.append("No prior messages in this session.")
+                role = "User" if turn.get("role") == "user" else "AI"
+                prompt_lines.append(f"{role}: {turn.get('content', '')}")
 
-        prompt_lines.append(f"\nCandidate Query: {user_message.strip()}")
-        prompt_lines.append("AI Mentor Reply (Provide actionable, professional coaching without introductory conversational boilerplate):")
-
+        prompt_lines.append(f"User: {user_message}")
+        prompt_lines.append("AI:")
         return "\n".join(prompt_lines)
 
     @classmethod

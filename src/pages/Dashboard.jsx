@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import resumeService from '../services/resumeService';
+import DocumentViewer from '../components/DocumentViewer';
 
 const API_DOMAIN = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace('/api', '');
 const getFullAvatarUrl = (path) => path ? (path.startsWith('http') ? path : `${API_DOMAIN}${path}`) : null;
@@ -251,15 +252,15 @@ const Dashboard = () => {
             </div>
           </button>
           <button
-            onClick={() => navigate(`/skill-gap-analyzer/${resumeId}`)}
+            onClick={() => navigate(`/ats-score/${resumeId}`)}
             className="glass-panel p-6 rounded-2xl flex items-center gap-6 group hover:bg-secondary transition-all duration-300 cursor-pointer"
           >
             <div className="w-12 h-12 rounded-xl bg-secondary/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
-              <span className="material-symbols-outlined text-secondary group-hover:text-white transition-colors">bar_chart</span>
+              <span className="material-symbols-outlined text-secondary group-hover:text-white transition-colors">query_stats</span>
             </div>
             <div className="text-left">
-              <p className="font-bold text-on-surface group-hover:text-white transition-colors">Analyze Skills</p>
-              <p className="text-xs text-on-surface-variant group-hover:text-white/80 transition-colors">Benchmark against market</p>
+              <p className="font-bold text-on-surface group-hover:text-white transition-colors">ATS Score</p>
+              <p className="text-xs text-on-surface-variant group-hover:text-white/80 transition-colors">Analyze Resume ATS Compatibility</p>
             </div>
           </button>
           <button
@@ -328,30 +329,9 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Next Steps / Analysis Gateway */}
-          <div className="glass-panel p-6 rounded-2xl flex flex-col items-center justify-center text-center border border-secondary/20 bg-gradient-to-br from-white to-secondary/5 dark:from-gray-900 dark:to-secondary/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-               <span className="material-symbols-outlined text-[100px]">auto_awesome</span>
-            </div>
-            
-            <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center text-secondary mb-4 shadow-inner relative z-10">
-              <span className="material-symbols-outlined text-[32px]">psychology</span>
-            </div>
-            <h3 className="text-xl font-bold text-on-surface mb-2 relative z-10">Run AI Analytics</h3>
-            <p className="text-sm text-on-surface-variant mb-6 px-4 relative z-10">
-              Leverage Gemini AI to generate actionable intelligence on your uploaded resume.
-            </p>
-            <div className="flex flex-col w-full gap-3 px-8 relative z-10">
-              <button onClick={() => navigate(`/ats-score/${resumeId}`)} className="py-2.5 bg-surface text-on-surface border border-outline-variant rounded-xl font-semibold hover:border-secondary hover:text-secondary transition-colors cursor-pointer flex items-center justify-center gap-2 group shadow-sm hover:shadow-md">
-                <span className="material-symbols-outlined text-[18px] group-hover:animate-pulse">query_stats</span> ATS Score
-              </button>
-              <button onClick={() => navigate(`/skill-gap-analyzer/${resumeId}`)} className="py-2.5 bg-surface text-on-surface border border-outline-variant rounded-xl font-semibold hover:border-primary hover:text-primary transition-colors cursor-pointer flex items-center justify-center gap-2 group shadow-sm hover:shadow-md">
-                <span className="material-symbols-outlined text-[18px] group-hover:animate-pulse">analytics</span> Skill Gap Match
-              </button>
-              <button onClick={() => navigate(`/career-prediction/${resumeId}`)} className="py-2.5 bg-surface text-on-surface border border-outline-variant rounded-xl font-semibold hover:border-tertiary hover:text-tertiary transition-colors cursor-pointer flex items-center justify-center gap-2 group shadow-sm hover:shadow-md">
-                <span className="material-symbols-outlined text-[18px] group-hover:animate-pulse">insights</span> Career Prediction
-              </button>
-            </div>
+          {/* Document Viewer Gateway */}
+          <div className="h-full min-h-[500px]">
+             <DocumentViewer resume={resumeData} />
           </div>
         </div>
       </>

@@ -27,6 +27,15 @@ export const authService = {
   },
 
   /**
+   * Authenticate user with Google access token
+   * @param {string} accessToken - The access token from Google OAuth
+   */
+  loginWithGoogle: async (accessToken) => {
+    const response = await api.post('/auth/google', { access_token: accessToken });
+    return response.data;
+  },
+
+  /**
    * Retrieve active authenticated user profile
    */
   getCurrentUser: async () => {
