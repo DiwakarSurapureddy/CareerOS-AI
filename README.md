@@ -1,80 +1,89 @@
-# CareerOS AI
+<div align="center">
+  <h1>CareerOS AI</h1>
+  <p><strong>Intelligent Career Navigation & Resume Analysis Platform</strong></p>
+</div>
+
+---
 
 ## Problem
-Modern job seekers struggle to navigate automated Applicant Tracking Systems (ATS), identify critical skill gaps relative to industry demands, and visualize a realistic career trajectory based on their current experience. Standard resume builders often lack intelligent, personalized insights and actionable roadmaps.
+In today's highly automated recruitment landscape, qualified candidates are frequently overlooked. Job seekers struggle with opaque Applicant Tracking Systems (ATS) that filter resumes based on rigid keyword parsing, making it difficult to understand why they face rejection. Furthermore, professionals often lack visibility into the exact technical skill gaps preventing them from advancing, and they receive generic, non-actionable career advice instead of data-driven roadmaps tailored to their actual experience.
 
 ## Solution
-CareerOS AI is a comprehensive, full-stack AI-powered career assistant. It bridges the gap between candidate competencies and industry expectations by providing:
-* **Deterministic ATS Scoring**: Evaluates resumes against target roles with a transparent 100-point scoring algorithm.
-* **Skill Gap Analysis**: Identifies required and preferred skills, generating personalized AI learning roadmaps.
-* **Career Prediction**: Matches profiles to 13 industry-standard career trajectories, estimating salary ranges and transition difficulty.
-* **AI Career Mentor**: Offers an interactive, context-aware Google Gemini AI chat mentor to coach candidates on resume optimization and interview preparation.
+CareerOS AI is a full-stack, AI-driven career acceleration platform designed to demystify the hiring process. By combining deterministic scoring algorithms with the contextual intelligence of Google Gemini AI, the platform acts as a personal career strategist. It analyzes resumes to provide transparent ATS scores, identifies precise skill gaps against industry benchmarks, predicts optimal career trajectories with salary estimates, and offers an interactive AI mentor to coach candidates on technical interviews and career growth.
 
 ## Structure
-The repository is structured as a full-stack monorepo:
+The project is architected as a modern, decoupled full-stack monorepo:
 
 ```text
 CareerOS AI/
 ├── backend/               # Python Flask REST API
-│   ├── app.py             # Core application entrypoint
-│   ├── models/            # MongoDB schemas (User, Resume, ATS)
-│   ├── routes/            # API Blueprints (auth, resume, ats, skill-gap, career, chat)
-│   ├── services/          # Business logic & Google Gemini AI integration
-│   └── utils/             # PDF/DOCX parsers and JWT auth utilities
-├── src/                   # React Frontend
-│   ├── components/        # Reusable UI components (Sidebar, Header, DocumentViewer)
-│   ├── context/           # React Context (AuthContext)
-│   ├── pages/             # Route views (Dashboard, Import Resume, ATS Score, etc.)
-│   └── services/          # Axios API client integrations
-├── public/                # Static assets
-└── package.json           # Frontend dependencies
+│   ├── app.py             # WSGI application entrypoint
+│   ├── models/            # MongoDB Data Access Layer
+│   ├── routes/            # API Blueprints (Auth, Resume, Prediction, Chat)
+│   ├── services/          # Core Business Logic & LLM Integrations
+│   └── utils/             # Document Parsers (PDF/DOCX) & JWT Utilities
+└── frontend/              # React Frontend (Vite)
+    ├── src/               # React Source Code
+    │   ├── components/    # Reusable UI Components
+    │   ├── context/       # React Context (Auth State)
+    │   ├── pages/         # Dynamic Route Views
+    │   └── services/      # API Client Integrations
+    ├── public/            # Static Web Assets
+    └── package.json       # Frontend dependencies
 ```
 
 ## Features & Technologies
 
 ### Key Features
-* **Resume Document Processing**: Secure ingestion and parsing of PDF, DOCX, and TXT resumes using PyMuPDF and python-docx.
-* **ATS Score Analyzer**: Transparent breakdown across 8 core resume categories (Keyword Match, Section Completeness, etc.).
-* **Skill Gap Analyzer**: Uses a deterministic tech synonym mapper before consulting Gemini AI to prevent hallucinations.
-* **6-Phase Career Roadmaps**: Generates achievable developmental timelines.
-* **Stateless Authentication**: Secure JWT-based authorization and bcrypt password hashing.
+* **Resume Ingestion & Parsing:** Secure, automated extraction of text from PDF, DOCX, and TXT files.
+* **Deterministic ATS Evaluator:** Explains resume performance across 8 core categories (Keywords, Section Completeness, Readability, etc.) with a transparent 100-point scoring algorithm.
+* **Skill Gap Mapping:** Compares extracted competencies against industry standards using a deterministic tech-synonym mapper to prevent AI hallucinations.
+* **Career Prediction & Roadmapping:** Matches profiles to 13 distinct industry trajectories, estimating salary ranges and generating 6-phase developmental timelines.
+* **AI Career Mentor:** Context-aware chat interface powered by Gemini AI for personalized interview coaching and technical guidance.
 
-### Technologies
-* **Frontend**: React, Vite, Tailwind CSS, React Router
-* **Backend**: Python 3, Flask, PyMongo, PyJWT, PyMuPDF
-* **Database**: MongoDB
-* **AI Integration**: Google Generative AI (Gemini 1.5 Flash) SDK
+### Technology Stack
+* **Frontend:** React, Vite, Tailwind CSS, React Router DOM
+* **Backend:** Python 3, Flask, PyJWT, PyMuPDF
+* **Database:** MongoDB
+* **Artificial Intelligence:** Google Generative AI (Gemini 1.5 Flash)
 
 ## Installation/Run
 
+To run CareerOS AI locally, the Backend API and Frontend Development Server must be started simultaneously in separate terminal sessions.
+
 ### 1. Backend Setup
-Navigate to the backend directory, install the Python dependencies, and run the Flask server.
+Open a terminal and navigate to the backend directory:
+
 ```bash
 cd backend
-# Create a virtual environment (recommended)
+```
+
+Create and activate a virtual environment, then install dependencies:
+```bash
 python -m venv venv
 venv\Scripts\activate
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-**Configuration**: Create a `.env` file in the `backend/` directory with your secrets:
+Create a `.env` file in the `backend/` directory with the following configuration:
 ```ini
 JWT_SECRET_KEY=your_secure_jwt_secret
-MONGO_URI=mongodb://localhost:27017/careeros_db
-GEMINI_API_KEY=your_gemini_api_key
+MONGO_URI=mongodb://localhost:*****/careeros_db
+GEMINI_API_KEY=your_google_gemini_api_key
 ```
 
-**Run Server**:
+Start the Flask server:
 ```bash
 python app.py
 ```
-*The backend API will run on http://localhost:5000*
+*The backend API will initialize on `http://localhost:5000`*
 
 ### 2. Frontend Setup
-Open a new terminal, navigate to the root directory, install the Node packages, and start the Vite dev server.
+Open a **new** terminal window in the root project directory (`CareerOS AI/`), navigate to the frontend folder, and start the app:
+
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
-*The frontend will run on http://localhost:5173*
+*The frontend application will initialize on `http://localhost:5173`*
